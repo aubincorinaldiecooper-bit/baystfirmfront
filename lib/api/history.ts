@@ -52,9 +52,32 @@ export function upsertHistoryRow(items: AnalysisSummary[], row: AnalysisSummary)
   return next;
 }
 
+/**
+ * Merge a freshly read first page into a list that may hold more pages: the
+ * page's rows come first (newest, with their current status), every other
+ * loaded row keeps its place after them. Cursors are keysets, so the cursor
+ * of the oldest loaded row stays valid when newer rows appear.
+ */
+export function mergeHeadPage(state: HistoryState, page: AnalysisListResponse): HistoryState {
+  const fresh = new Set(page.analyses.map((row) => row.analysis_id));
+  const rest = state.items.filter((row) => !fresh.has(row.analysis_id));
+  const items = mergeHistoryPage([], [...page.analyses, ...rest]);
+  const keepCursor = state.loaded && rest.length > 0;
+  const nextCursor = keepCursor ? state.nextCursor : page.next_cursor;
+  return {
+    items,
+    nextCursor,
+    hasMore: keepCursor ? state.hasMore : page.next_cursor !== null,
+    status: "ready",
+    error: null,
+    loaded: true,
+  };
+}
+
 export type HistoryAction =
   | { type: "load_start"; reset: boolean }
   | { type: "page"; page: AnalysisListResponse; reset: boolean }
+  | { type: "head"; page: AnalysisListResponse }
   | { type: "failed"; error: ApiError }
   | { type: "upsert"; row: AnalysisSummary };
 
@@ -73,6 +96,8 @@ export function historyReducer(state: HistoryState, action: HistoryAction): Hist
         loaded: true,
       };
     }
+    case "head":
+      return mergeHeadPage(state, action.page);
     case "failed":
       return { ...state, status: "error", error: action.error };
     case "upsert":
@@ -130,6 +155,8 @@ export function createHistoryPager(client: BayApiClient = bayApi, limit = DEFAUL
 export interface UseAnalysisHistoryResult extends HistoryState {
   loadMore: () => void;
   refresh: () => void;
+  /** Re-read the first page and merge it in, keeping pages already loaded (after a create or a finish). */
+  refreshHead: () => void;
   upsert: (row: AnalysisSummary) => void;
 }
 
@@ -186,5 +213,26 @@ export function useAnalysisHistory(
 
   const upsert = useCallback((row: AnalysisSummary) => dispatch({ type: "upsert", row }), []);
 
-  return { ...state, loadMore, refresh, upsert };
+  const headController = useRef<AbortController | null>(null);
+  const refreshHead = useCallback(() => {
+    if (!stateRef.current.loaded) {
+      void fetchPage(null, true);
+      return;
+    }
+    headController.current?.abort();
+    const controller = new AbortController();
+    headController.current = controller;
+    client
+      .listAnalyses({ limit }, { signal: controller.signal })
+      .then((page) => {
+        if (!controller.signal.aborted) dispatch({ type: "head", page });
+      })
+      .catch(() => {
+        /* the loaded list stays as it is; the next refresh or load-more reports errors */
+      });
+  }, [client, fetchPage, limit]);
+
+  useEffect(() => () => headController.current?.abort(), []);
+
+  return { ...state, loadMore, refresh, refreshHead, upsert };
 }

@@ -11,9 +11,12 @@ from props only):
   components/primitives/PromptBar.tsx
   components/primitives/RecordsTable.tsx
   components/primitives/SidebarNav.tsx   (icons also moved from the commercial
-                                          @central-icons-react to lucide-react)
+                                          @central-icons-react to lucide-react;
+                                          adds selection by id, a per-row detail,
+                                          empty/footer slots and an optional
+                                          controlled collapse)
   components/primitives/StreamingText.tsx
-  components/primitives/ThinkingState.tsx
+  components/primitives/ThinkingState.tsx (adds a "stopped" step status)
   components/primitives/ToolChips.tsx
 
 Copied unmodified:

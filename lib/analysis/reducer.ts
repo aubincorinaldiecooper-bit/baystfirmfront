@@ -13,9 +13,12 @@ import type {
   AnalysisEvent,
   AnalysisEventOf,
   AnalysisResult,
+  AnalysisStatus,
+  AnalysisSummary,
   CalculationEventView,
   CreateAnalysisResponse,
   ErrorPayload,
+  EventName,
   ExecutionInfo,
   InstrumentResolvedData,
   LayaDecisionEventView,
@@ -26,6 +29,8 @@ import type {
   ResolvedHorizon,
   SourcePublicView,
 } from "@/lib/api/types";
+import { isTerminalStatus } from "@/lib/api/types";
+import { requirementLabels } from "./requirements";
 
 /* ── state ───────────────────────────────────────────────── */
 
@@ -73,8 +78,31 @@ export interface ResearchProgress {
   evidenceGaps: string[];
   /** The query currently running, for a compact research trace. */
   currentQuery: { intent: string; kind: string; label: string; round: number } | null;
+  /** Every `research.query`, in seq order. */
+  queries: ResearchQueryView[];
+  /** Every `research.source_rejected`, in seq order. */
+  rejected: RejectedSourceView[];
+  /** Product-level requirement labels from `research.started` (backend PR #4, optional). */
+  requirements: string[];
   /** `research.completed` payload (`ResearchStats`). */
   stats: ResearchStats | null;
+}
+
+export interface ResearchQueryView {
+  seq: number;
+  intent: string;
+  kind: string;
+  label: string;
+  round: number;
+}
+
+export interface RejectedSourceView {
+  seq: number;
+  url: string;
+  title: string;
+  /** A fixed backend keyword, never upstream text. */
+  reason: string;
+  round: number;
 }
 
 export interface SourceView extends SourcePublicView {
@@ -146,6 +174,37 @@ export interface AnalysisViewState {
   result: AnalysisResult | null;
   /** The stream could not be recovered and the durable state should be fetched. */
   streamFallback: boolean;
+  /** `POST /cancel` was accepted; the terminal event still decides the outcome. */
+  cancelRequested: boolean;
+  /** One entry per received phase event, in seq order: the progress trace's source. */
+  milestones: Milestone[];
+}
+
+/** Events that mark a step of the recorded progress (tokens, decisions and per-item events do not). */
+export const MILESTONE_EVENTS = [
+  "analysis.started",
+  "instrument.resolved",
+  "research.started",
+  "research.query",
+  "research.completed",
+  "normalization.completed",
+  "laya.started",
+  "calculation.started",
+  "spark.queued",
+  "spark.loading",
+  "spark.started",
+] as const satisfies readonly EventName[];
+export type MilestoneEvent = (typeof MILESTONE_EVENTS)[number];
+
+export interface Milestone {
+  seq: number;
+  event: MilestoneEvent;
+  /** The Laya stage for `laya.started`, the round for `research.started`. */
+  key: string | null;
+}
+
+function isMilestoneEvent(name: EventName): name is MilestoneEvent {
+  return (MILESTONE_EVENTS as readonly string[]).includes(name);
 }
 
 export const initialResearch: ResearchProgress = {
@@ -158,6 +217,9 @@ export const initialResearch: ResearchProgress = {
   intents: [],
   evidenceGaps: [],
   currentQuery: null,
+  queries: [],
+  rejected: [],
+  requirements: [],
   stats: null,
 };
 
@@ -200,6 +262,8 @@ export const initialAnalysisState: AnalysisViewState = {
   partial: false,
   result: null,
   streamFallback: false,
+  cancelRequested: false,
+  milestones: [],
 };
 
 /* ── event application ───────────────────────────────────── */
@@ -208,6 +272,14 @@ export const initialAnalysisState: AnalysisViewState = {
 const SCORING_STAGES: ReadonlySet<string> = new Set(["evidence_scan", "history_scan", "text_evidence"]);
 
 export function applyEvent(state: AnalysisViewState, event: AnalysisEvent): AnalysisViewState {
+  const next = reduceEvent(state, event);
+  if (next === state || !isMilestoneEvent(event.event)) return next;
+  const key =
+    event.event === "laya.started" ? event.stage : event.event === "research.started" ? String(event.round) : null;
+  return { ...next, milestones: [...next.milestones, { seq: event.seq, event: event.event, key }] };
+}
+
+function reduceEvent(state: AnalysisViewState, event: AnalysisEvent): AnalysisViewState {
   if (state.analysisId !== null && event.analysis_id !== state.analysisId) return state;
   if (typeof event.seq !== "number" || event.seq <= state.lastSeq) return state;
   /* a terminal state never moves again, whatever arrives late */
@@ -244,6 +316,7 @@ export function applyEvent(state: AnalysisViewState, event: AnalysisEvent): Anal
           intents: event.intents,
           evidenceGaps: event.evidence_gaps,
           currentQuery: null,
+          requirements: mergeLabels(base.research.requirements, requirementLabels(event.requirements)),
         },
       };
     case "research.query":
@@ -256,6 +329,10 @@ export function applyEvent(state: AnalysisViewState, event: AnalysisEvent): Anal
           rounds: Math.max(base.research.rounds, event.round),
           queriesIssued: base.research.queriesIssued + 1,
           currentQuery: { intent: event.intent, kind: event.kind, label: event.label, round: event.round },
+          queries: [
+            ...base.research.queries,
+            { seq: event.seq, intent: event.intent, kind: event.kind, label: event.label, round: event.round },
+          ],
         },
       };
     case "research.source_found": {
@@ -280,6 +357,10 @@ export function applyEvent(state: AnalysisViewState, event: AnalysisEvent): Anal
           ...base.research,
           rounds: Math.max(base.research.rounds, event.round),
           sourcesRejected: base.research.sourcesRejected + 1,
+          rejected: [
+            ...base.research.rejected,
+            { seq: event.seq, url: event.url, title: event.title, reason: event.reason, round: event.round },
+          ],
         },
       };
     case "research.completed":
@@ -445,7 +526,22 @@ export type AnalysisAction =
   | { type: "request_failed"; error: ErrorPayload }
   | { type: "result"; result: AnalysisResult }
   | { type: "stream_fallback" }
+  | { type: "stream_resumed" }
+  | { type: "attach"; snapshot: AttachSnapshot }
+  | { type: "cancel_requested" }
   | { type: "reset" };
+
+/**
+ * What the page knows about an analysis before its events replay: the
+ * durable job fields from `GET /analyses/{id}` (or a history row). Used when
+ * the page is opened or reloaded mid-run, before the stream is attached.
+ */
+export type AttachSnapshot = Pick<AnalysisSummary, "analysis_id" | "query" | "profile" | "horizon" | "status" | "instrument">;
+
+/** The backend's job status as the UI status (`resolving_instrument` → `resolving`). */
+export function uiStatusOf(status: AnalysisStatus): AnalysisUIStatus {
+  return status === "resolving_instrument" ? "resolving" : status;
+}
 
 export function analysisReducer(state: AnalysisViewState, action: AnalysisAction): AnalysisViewState {
   switch (action.type) {
@@ -467,6 +563,12 @@ export function analysisReducer(state: AnalysisViewState, action: AnalysisAction
       return applyResult(state, action.result);
     case "stream_fallback":
       return { ...state, streamFallback: true };
+    case "stream_resumed":
+      return { ...state, streamFallback: false };
+    case "attach":
+      return attach(state, action.snapshot);
+    case "cancel_requested":
+      return isTerminalUiStatus(state.status) ? state : { ...state, cancelRequested: true };
     case "reset":
       return initialAnalysisState;
     default:
@@ -497,7 +599,9 @@ export function applyResult(state: AnalysisViewState, result: AnalysisResult): A
     instrument: state.instrument ?? (result.instrument ? { ...result.instrument, resolution_method: "", confidence: 0 } : null),
     result,
     error: result.error ?? state.error,
-    partial: result.partial || state.partial,
+    /* a running snapshot reports partial=true for any started job; only a
+     * terminal result's flag means "content preserved but incomplete" */
+    partial: terminal ? result.partial || state.partial : state.partial,
     totalRequestMs: result.telemetry.total_request_ms ?? state.totalRequestMs,
     spark: settleSpark(state.spark, result, terminal),
   };
@@ -518,6 +622,37 @@ function settleSpark(spark: SparkProgress, result: AnalysisResult, terminal: boo
   const text = persisted || spark.text;
   const phase: SparkPhase = spark.phase === "streaming" || (persisted.length > 0 && spark.phase !== "completed") ? "completed" : spark.phase;
   return text === spark.text && phase === spark.phase ? spark : { ...spark, text, phase };
+}
+
+export function isTerminalUiStatus(status: AnalysisUIStatus): boolean {
+  return status === "completed" || status === "failed" || status === "cancelled";
+}
+
+/**
+ * Attach to an analysis from its durable job fields. A fresh view takes the
+ * snapshot's status; a view that already applied events keeps its own (the
+ * events are newer). A different analysis id starts from a clean state.
+ */
+function attach(state: AnalysisViewState, snapshot: AttachSnapshot): AnalysisViewState {
+  const fresh = state.analysisId !== snapshot.analysis_id;
+  const base = fresh ? initialAnalysisState : state;
+  const status: AnalysisUIStatus =
+    fresh || base.eventCount === 0 || isTerminalStatus(snapshot.status) ? uiStatusOf(snapshot.status) : base.status;
+  return {
+    ...base,
+    analysisId: snapshot.analysis_id,
+    status: isTerminalUiStatus(base.status) ? base.status : status,
+    query: base.query || snapshot.query,
+    profile: base.profile ?? snapshot.profile,
+    resolvedHorizon: base.resolvedHorizon ?? snapshot.horizon,
+    instrument:
+      base.instrument ?? (snapshot.instrument ? { ...snapshot.instrument, resolution_method: "", confidence: 0 } : null),
+  };
+}
+
+function mergeLabels(existing: string[], next: string[]): string[] {
+  const fresh = next.filter((label) => !existing.includes(label));
+  return fresh.length === 0 ? existing : [...existing, ...fresh];
 }
 
 /* ── field pickers (drop the envelope, keep the payload) ─── */

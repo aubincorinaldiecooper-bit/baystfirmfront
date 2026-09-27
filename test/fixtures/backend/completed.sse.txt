@@ -1,0 +1,958 @@
+: connected
+
+id: 1
+event: analysis.started
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 1, "ts": "2026-09-27T19:31:00.741826+00:00", "query": "Assess Apple.", "profile": "fast", "resolved_horizon": "multi_horizon", "as_of": "2026-09-27T19:31:00.740261+00:00", "execution": {"spark_mode": "managed", "whisper_mode": "disabled", "deployment": "local", "search_configured": false}}
+
+id: 2
+event: instrument.resolved
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 2, "ts": "2026-09-27T19:31:00.742543+00:00", "symbol": "AAPL", "exchange": "NASDAQ", "name": "Apple Inc.", "cik": "0000320193", "sector": "Electronic Computers", "resolution_method": "name_match", "confidence": 0.9}
+
+id: 3
+event: research.started
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 3, "ts": "2026-09-27T19:31:00.742704+00:00", "round": 1, "intents": ["retrieve_latest_filing", "retrieve_earnings_history", "retrieve_price_history", "retrieve_sector_benchmark", "retrieve_recent_news", "retrieve_guidance_history"], "evidence_gaps": []}
+
+id: 4
+event: research.query
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 4, "ts": "2026-09-27T19:31:00.742754+00:00", "intent": "retrieve_latest_filing", "kind": "edgar_submissions", "query": null, "label": "latest EDGAR filings for Apple Inc.", "round": 1}
+
+id: 5
+event: research.source_found
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 5, "ts": "2026-09-27T19:31:00.743124+00:00", "source_id": "src_91bdab619e8f37da", "title": "SEC EDGAR submissions", "publisher": "SEC EDGAR", "source_type": "regulatory_filing", "published_at": "2026-08-04T00:00:00+00:00", "retrieved_at": "2026-09-27T19:31:00.742853+00:00", "url": "https://data.sec.gov/submissions/CIK0000320193.json", "fiscal_period": null, "freshness": "stale", "is_primary": true, "intent": "retrieve_latest_filing", "round": 1}
+
+id: 6
+event: research.source_found
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 6, "ts": "2026-09-27T19:31:00.743847+00:00", "source_id": "src_fd8cbd3fe14448ba", "title": "10-Q filed 2026-07-31", "publisher": "SEC EDGAR", "source_type": "regulatory_filing", "published_at": "2026-07-31T00:00:00+00:00", "retrieved_at": "2026-09-27T19:31:00.743785+00:00", "url": "https://www.sec.gov/Archives/edgar/data/320193/000032019326000079/0000320193-26-000079-index.htm", "fiscal_period": "Q3 FY2026", "freshness": "stale", "is_primary": true, "intent": "retrieve_latest_filing", "round": 1}
+
+id: 7
+event: research.source_found
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 7, "ts": "2026-09-27T19:31:00.744565+00:00", "source_id": "src_6732d533c721a205", "title": "8-K filed 2026-07-30", "publisher": "SEC EDGAR", "source_type": "regulatory_filing", "published_at": "2026-07-30T00:00:00+00:00", "retrieved_at": "2026-09-27T19:31:00.744513+00:00", "url": "https://www.sec.gov/Archives/edgar/data/320193/000032019326000077/0000320193-26-000077-index.htm", "fiscal_period": "2026-07-30", "freshness": "stale", "is_primary": true, "intent": "retrieve_latest_filing", "round": 1}
+
+id: 8
+event: research.source_found
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 8, "ts": "2026-09-27T19:31:00.745030+00:00", "source_id": "src_dac93d7f4b447edb", "title": "10-Q filed 2026-05-01", "publisher": "SEC EDGAR", "source_type": "regulatory_filing", "published_at": "2026-05-01T00:00:00+00:00", "retrieved_at": "2026-09-27T19:31:00.744981+00:00", "url": "https://www.sec.gov/Archives/edgar/data/320193/000032019326000052/0000320193-26-000052-index.htm", "fiscal_period": "Q2 FY2026", "freshness": "stale", "is_primary": true, "intent": "retrieve_latest_filing", "round": 1}
+
+id: 9
+event: research.source_found
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 9, "ts": "2026-09-27T19:31:00.745132+00:00", "source_id": "src_073e022c8e32c99b", "title": "8-K filed 2026-04-30", "publisher": "SEC EDGAR", "source_type": "regulatory_filing", "published_at": "2026-04-30T00:00:00+00:00", "retrieved_at": "2026-09-27T19:31:00.745105+00:00", "url": "https://www.sec.gov/Archives/edgar/data/320193/000032019326000050/0000320193-26-000050-index.htm", "fiscal_period": "2026-04-30", "freshness": "stale", "is_primary": true, "intent": "retrieve_latest_filing", "round": 1}
+
+id: 10
+event: research.source_found
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 10, "ts": "2026-09-27T19:31:00.745211+00:00", "source_id": "src_6c5367ac1106bb23", "title": "10-Q filed 2026-01-30", "publisher": "SEC EDGAR", "source_type": "regulatory_filing", "published_at": "2026-01-30T00:00:00+00:00", "retrieved_at": "2026-09-27T19:31:00.745187+00:00", "url": "https://www.sec.gov/Archives/edgar/data/320193/000032019326000010/0000320193-26-000010-index.htm", "fiscal_period": "Q1 FY2026", "freshness": "stale", "is_primary": true, "intent": "retrieve_latest_filing", "round": 1}
+
+id: 11
+event: research.source_found
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 11, "ts": "2026-09-27T19:31:00.746008+00:00", "source_id": "src_17655158d34b1761", "title": "10-K filed 2025-10-31", "publisher": "SEC EDGAR", "source_type": "regulatory_filing", "published_at": "2025-10-31T00:00:00+00:00", "retrieved_at": "2026-09-27T19:31:00.745952+00:00", "url": "https://www.sec.gov/Archives/edgar/data/320193/000032019325000123/0000320193-25-000123-index.htm", "fiscal_period": "FY2025", "freshness": "stale", "is_primary": true, "intent": "retrieve_latest_filing", "round": 1}
+
+id: 12
+event: research.query
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 12, "ts": "2026-09-27T19:31:00.746133+00:00", "intent": "retrieve_earnings_history", "kind": "edgar_companyfacts", "query": null, "label": "XBRL company facts for Apple Inc.", "round": 1}
+
+id: 13
+event: research.source_found
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 13, "ts": "2026-09-27T19:31:00.747508+00:00", "source_id": "src_587c133c2376b2e8", "title": "SEC XBRL company facts", "publisher": "SEC EDGAR", "source_type": "regulatory_filing", "published_at": "2026-07-31T00:00:00+00:00", "retrieved_at": "2026-09-27T19:31:00.746353+00:00", "url": "https://data.sec.gov/api/xbrl/companyfacts/CIK0000320193.json", "fiscal_period": null, "freshness": "stale", "is_primary": true, "intent": "retrieve_earnings_history", "round": 1}
+
+id: 14
+event: research.query
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 14, "ts": "2026-09-27T19:31:00.747590+00:00", "intent": "retrieve_price_history", "kind": "prices", "query": null, "label": "daily prices for AAPL", "round": 1}
+
+id: 15
+event: research.source_found
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 15, "ts": "2026-09-27T19:31:00.750222+00:00", "source_id": "src_d15c236d9b812a52", "title": "Stooq daily prices aapl.us", "publisher": "Stooq", "source_type": "market_data", "published_at": "2026-09-25T00:00:00+00:00", "retrieved_at": "2026-09-27T19:31:00.747814+00:00", "url": "https://stooq.com/q/d/l/?s=aapl.us&i=d", "fiscal_period": null, "freshness": "current", "is_primary": false, "intent": "retrieve_price_history", "round": 1}
+
+id: 16
+event: research.query
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 16, "ts": "2026-09-27T19:31:00.750348+00:00", "intent": "retrieve_sector_benchmark", "kind": "benchmarks", "query": null, "label": "benchmarks for AAPL (SIC 3571)", "round": 1}
+
+id: 17
+event: research.source_found
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 17, "ts": "2026-09-27T19:31:00.754130+00:00", "source_id": "src_2f2cff6eccbacfe3", "title": "Stooq daily prices ^spx", "publisher": "Stooq", "source_type": "market_data", "published_at": "2026-09-25T00:00:00+00:00", "retrieved_at": "2026-09-27T19:31:00.750553+00:00", "url": "https://stooq.com/q/d/l/?s=^spx&i=d", "fiscal_period": null, "freshness": "current", "is_primary": false, "intent": "retrieve_sector_benchmark", "round": 1}
+
+id: 18
+event: research.source_found
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 18, "ts": "2026-09-27T19:31:00.756804+00:00", "source_id": "src_235c1e769f1b7971", "title": "Stooq daily prices xlk.us", "publisher": "Stooq", "source_type": "market_data", "published_at": "2026-09-25T00:00:00+00:00", "retrieved_at": "2026-09-27T19:31:00.754390+00:00", "url": "https://stooq.com/q/d/l/?s=xlk.us&i=d", "fiscal_period": null, "freshness": "current", "is_primary": false, "intent": "retrieve_sector_benchmark", "round": 1}
+
+id: 19
+event: research.query
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 19, "ts": "2026-09-27T19:31:00.756895+00:00", "intent": "retrieve_recent_news", "kind": "search", "query": "\"Apple Inc.\" earnings OR guidance OR outlook", "label": "recent news for Apple Inc.", "round": 1}
+
+id: 20
+event: research.source_found
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 20, "ts": "2026-09-27T19:31:00.757965+00:00", "source_id": "src_44edc78779a3a14a", "title": "[Fixture] Apple quarter preview: what the synthetic numbers imply", "publisher": "Fixture Wire (synthetic)", "source_type": "financial_journalism", "published_at": "2026-09-18T12:30:00+00:00", "retrieved_at": "2026-09-27T19:31:00.757084+00:00", "url": "https://www.cnbc.com/2026/09/18/fixture-apple-quarter-preview.html", "fiscal_period": null, "freshness": "recent", "is_primary": false, "intent": "retrieve_recent_news", "round": 1}
+
+id: 21
+event: research.source_found
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 21, "ts": "2026-09-27T19:31:00.758832+00:00", "source_id": "src_684a26b504c2ff06", "title": "[Fixture] Opinion: the outlook for the next cycle", "publisher": "Fixture Watch (synthetic)", "source_type": "financial_journalism", "published_at": "2026-09-12T13:15:00+00:00", "retrieved_at": "2026-09-27T19:31:00.758109+00:00", "url": "https://www.marketwatch.com/story/fixture-apple-outlook-2026-09-12", "fiscal_period": null, "freshness": "recent", "is_primary": false, "intent": "retrieve_recent_news", "round": 1}
+
+id: 22
+event: research.source_found
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 22, "ts": "2026-09-27T19:31:00.759471+00:00", "source_id": "src_9810cc6da4dd3048", "title": "[Fixture] Apple Reports Third Quarter Results", "publisher": "Fixture Wire Releases (synthetic)", "source_type": "earnings_release", "published_at": "2026-07-30T20:05:00+00:00", "retrieved_at": "2026-09-27T19:31:00.758936+00:00", "url": "https://www.businesswire.com/news/home/20260730001234/en/Fixture-Apple-Reports-Third-Quarter-Results", "fiscal_period": null, "freshness": "stale", "is_primary": true, "intent": "retrieve_recent_news", "round": 1}
+
+id: 23
+event: research.source_found
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 23, "ts": "2026-09-27T19:31:00.760164+00:00", "source_id": "src_bb0ef5e10c7c147f", "title": "[Fixture] 3 things to watch this quarter", "publisher": "Fixture Commentary (synthetic)", "source_type": "secondary_commentary", "published_at": "2026-09-20T00:00:00+00:00", "retrieved_at": "2026-09-27T19:31:00.759554+00:00", "url": "https://www.fool.com/investing/2026/09/20/fixture-apple-what-to-watch/", "fiscal_period": null, "freshness": "recent", "is_primary": false, "intent": "retrieve_recent_news", "round": 1}
+
+id: 24
+event: research.source_rejected
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 24, "ts": "2026-09-27T19:31:00.760624+00:00", "url": "https://www.reuters.com/technology/fixture-apple-october-event-2026-10-02/", "title": "[Fixture] October event recap", "reason": "published_after_as_of", "intent": "retrieve_recent_news", "round": 1}
+
+id: 25
+event: research.source_rejected
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 25, "ts": "2026-09-27T19:31:00.760902+00:00", "url": "https://investor.example-fixture.com/news/short-notice", "title": "[Fixture] Investor notice", "reason": "thin_content", "intent": "retrieve_recent_news", "round": 1}
+
+id: 26
+event: research.query
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 26, "ts": "2026-09-27T19:31:00.760967+00:00", "intent": "retrieve_guidance_history", "kind": "search", "query": "\"Apple Inc.\" guidance raised OR lowered OR cut", "label": "guidance history for Apple Inc.", "round": 1}
+
+id: 27
+event: laya.started
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 27, "ts": "2026-09-27T19:31:00.764992+00:00", "stage": "research_plan", "questions": 3}
+
+id: 28
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 28, "ts": "2026-09-27T19:31:00.765630+00:00", "decision_id": "dec_5ac2d2c8848be5ba", "stage": "research_plan", "decision_type": "research_intent", "decision": "retrieve_management_commentary", "confidence": 0.75, "segment_id": null}
+
+id: 29
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 29, "ts": "2026-09-27T19:31:00.765682+00:00", "decision_id": "dec_27c8e3ba4788e04f", "stage": "research_plan", "decision_type": "evidence_sufficient", "decision": 0.8, "confidence": 0.8, "segment_id": null}
+
+id: 30
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 30, "ts": "2026-09-27T19:31:00.765708+00:00", "decision_id": "dec_68f86da3352d90e5", "stage": "research_plan", "decision_type": "stale_evidence_matters", "decision": 0.25, "confidence": 0.75, "segment_id": null}
+
+id: 31
+event: laya.completed
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 31, "ts": "2026-09-27T19:31:00.765728+00:00", "stage": "research_plan", "decisions": 3}
+
+id: 32
+event: research.completed
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 32, "ts": "2026-09-27T19:31:00.765851+00:00", "search_rounds": 1, "queries_issued": 7, "queries_failed": 0, "structured_failures": 2, "sources_fetched": 16, "sources_rejected": 2, "duplicate_sources_removed": 9, "evidence_gaps_remaining": 1, "retrieval_total_ms": 18.61315500082128, "intents": ["retrieve_latest_filing", "retrieve_earnings_history", "retrieve_price_history", "retrieve_sector_benchmark", "retrieve_recent_news", "retrieve_guidance_history"], "termination_reason": "evidence_sufficient"}
+
+id: 33
+event: normalization.completed
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 33, "ts": "2026-09-27T19:31:00.774361+00:00", "facts": 161, "conflicts": 0, "uncertainties": 6, "sources": 15, "segments": 11, "freshness": {"facts": {"current": 25, "recent": 17, "stale": 119, "unknown": 0, "total": 161}, "latest_quarter_end": "2026-06-27", "prices": "current", "warnings": 0}}
+
+id: 34
+event: laya.started
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 34, "ts": "2026-09-27T19:31:00.774943+00:00", "stage": "evidence_scan", "question_sets": 17, "questions": 62}
+
+id: 35
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 35, "ts": "2026-09-27T19:31:00.779734+00:00", "decision_id": "dec_0bf4a88d763218d4", "stage": "evidence_scan", "decision_type": "material_change", "decision": 0.3, "confidence": 0.7, "segment_id": null}
+
+id: 36
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 36, "ts": "2026-09-27T19:31:00.779795+00:00", "decision_id": "dec_1fa8ec66b32fc077", "stage": "evidence_scan", "decision_type": "guidance_trend", "decision": "unchanged", "confidence": 0.6, "segment_id": null}
+
+id: 37
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 37, "ts": "2026-09-27T19:31:00.779820+00:00", "decision_id": "dec_c1c3be72b6d694ab", "stage": "evidence_scan", "decision_type": "sentiment_trend", "decision": "stable", "confidence": 0.6, "segment_id": null}
+
+id: 38
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 38, "ts": "2026-09-27T19:31:00.779838+00:00", "decision_id": "dec_ce20c508438b1664", "stage": "evidence_scan", "decision_type": "volatility_regime", "decision": "normal", "confidence": 0.5, "segment_id": null}
+
+id: 39
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 39, "ts": "2026-09-27T19:31:00.779858+00:00", "decision_id": "dec_6bdff1db5719a689", "stage": "evidence_scan", "decision_type": "evidence_stance", "decision": "neutral", "confidence": 0.5, "segment_id": null}
+
+id: 40
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 40, "ts": "2026-09-27T19:31:00.779876+00:00", "decision_id": "dec_8a8b340d763bf5cf", "stage": "evidence_scan", "decision_type": "stale_evidence_matters", "decision": 0.25, "confidence": 0.75, "segment_id": null}
+
+id: 41
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 41, "ts": "2026-09-27T19:31:00.779893+00:00", "decision_id": "dec_7368b77dd897461b", "stage": "evidence_scan", "decision_type": "calculation_pack", "decision": "all_standard", "confidence": 0.6, "segment_id": null}
+
+id: 42
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 42, "ts": "2026-09-27T19:31:00.779911+00:00", "decision_id": "dec_a5481ebd22ff677d", "stage": "history_scan", "decision_type": "revenue_momentum", "decision": 2.0, "confidence": 0.4343, "segment_id": "seg_559d52b3c1466929"}
+
+id: 43
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 43, "ts": "2026-09-27T19:31:00.779929+00:00", "decision_id": "dec_b3fb4003c7c8524a", "stage": "history_scan", "decision_type": "margin_direction", "decision": "stable", "confidence": 0.5, "segment_id": "seg_559d52b3c1466929"}
+
+id: 44
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 44, "ts": "2026-09-27T19:31:00.779946+00:00", "decision_id": "dec_ef8379d7e2141810", "stage": "history_scan", "decision_type": "historically_unusual", "decision": 0.3, "confidence": 0.7, "segment_id": "seg_559d52b3c1466929"}
+
+id: 45
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 45, "ts": "2026-09-27T19:31:00.779963+00:00", "decision_id": "dec_3668bdac8b638a36", "stage": "history_scan", "decision_type": "material_change", "decision": 0.3, "confidence": 0.7, "segment_id": "seg_559d52b3c1466929"}
+
+id: 46
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 46, "ts": "2026-09-27T19:31:00.779980+00:00", "decision_id": "dec_b2ef317cd59d127d", "stage": "history_scan", "decision_type": "revenue_momentum", "decision": 3.7156, "confidence": 0.7773, "segment_id": "seg_9ae2a723e4040725"}
+
+id: 47
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 47, "ts": "2026-09-27T19:31:00.779996+00:00", "decision_id": "dec_044ff143f932e97c", "stage": "history_scan", "decision_type": "margin_direction", "decision": "stable", "confidence": 0.5, "segment_id": "seg_9ae2a723e4040725"}
+
+id: 48
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 48, "ts": "2026-09-27T19:31:00.780012+00:00", "decision_id": "dec_40cbcbe2ff553218", "stage": "history_scan", "decision_type": "historically_unusual", "decision": 0.7, "confidence": 0.7, "segment_id": "seg_9ae2a723e4040725"}
+
+id: 49
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 49, "ts": "2026-09-27T19:31:00.780034+00:00", "decision_id": "dec_a266ae3e04463a64", "stage": "history_scan", "decision_type": "material_change", "decision": 0.75, "confidence": 0.75, "segment_id": "seg_9ae2a723e4040725"}
+
+id: 50
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 50, "ts": "2026-09-27T19:31:00.780049+00:00", "decision_id": "dec_966109be8a22e385", "stage": "history_scan", "decision_type": "volatility_regime", "decision": "normal", "confidence": 0.5, "segment_id": "seg_9ae2a723e4040725"}
+
+id: 51
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 51, "ts": "2026-09-27T19:31:00.780067+00:00", "decision_id": "dec_2d65f02bf581a035", "stage": "history_scan", "decision_type": "revenue_momentum", "decision": 3.7156, "confidence": 0.7773, "segment_id": "seg_4794e54081dc86dd"}
+
+id: 52
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 52, "ts": "2026-09-27T19:31:00.780084+00:00", "decision_id": "dec_32fd4edbdbb566a1", "stage": "history_scan", "decision_type": "margin_direction", "decision": "stable", "confidence": 0.5, "segment_id": "seg_4794e54081dc86dd"}
+
+id: 53
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 53, "ts": "2026-09-27T19:31:00.780101+00:00", "decision_id": "dec_35d6e2ad39d6df51", "stage": "history_scan", "decision_type": "historically_unusual", "decision": 0.7, "confidence": 0.7, "segment_id": "seg_4794e54081dc86dd"}
+
+id: 54
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 54, "ts": "2026-09-27T19:31:00.780117+00:00", "decision_id": "dec_215aa0aa81b3c3b2", "stage": "history_scan", "decision_type": "material_change", "decision": 0.75, "confidence": 0.75, "segment_id": "seg_4794e54081dc86dd"}
+
+id: 55
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 55, "ts": "2026-09-27T19:31:00.780132+00:00", "decision_id": "dec_530be0d7f9404195", "stage": "history_scan", "decision_type": "volatility_regime", "decision": "normal", "confidence": 0.5, "segment_id": "seg_4794e54081dc86dd"}
+
+id: 56
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 56, "ts": "2026-09-27T19:31:00.780149+00:00", "decision_id": "dec_e4afac4da44ceb75", "stage": "history_scan", "decision_type": "revenue_momentum", "decision": 3.7156, "confidence": 0.7773, "segment_id": "seg_5fd00ffbe667e322"}
+
+id: 57
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 57, "ts": "2026-09-27T19:31:00.780165+00:00", "decision_id": "dec_20e184fc03724a4e", "stage": "history_scan", "decision_type": "margin_direction", "decision": "stable", "confidence": 0.5, "segment_id": "seg_5fd00ffbe667e322"}
+
+id: 58
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 58, "ts": "2026-09-27T19:31:00.780181+00:00", "decision_id": "dec_4b841f4dabfa9223", "stage": "history_scan", "decision_type": "historically_unusual", "decision": 0.7, "confidence": 0.7, "segment_id": "seg_5fd00ffbe667e322"}
+
+id: 59
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 59, "ts": "2026-09-27T19:31:00.780199+00:00", "decision_id": "dec_5d88e8308b6b2880", "stage": "history_scan", "decision_type": "material_change", "decision": 0.75, "confidence": 0.75, "segment_id": "seg_5fd00ffbe667e322"}
+
+id: 60
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 60, "ts": "2026-09-27T19:31:00.780215+00:00", "decision_id": "dec_352ac41c37f41d3b", "stage": "history_scan", "decision_type": "volatility_regime", "decision": "normal", "confidence": 0.5, "segment_id": "seg_5fd00ffbe667e322"}
+
+id: 61
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 61, "ts": "2026-09-27T19:31:00.780234+00:00", "decision_id": "dec_ebbdccc33b1806a6", "stage": "history_scan", "decision_type": "revenue_momentum", "decision": 3.7156, "confidence": 0.7773, "segment_id": "seg_3e946e61b5ab0970"}
+
+id: 62
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 62, "ts": "2026-09-27T19:31:00.780250+00:00", "decision_id": "dec_8d9e693ae2bac8d6", "stage": "history_scan", "decision_type": "margin_direction", "decision": "stable", "confidence": 0.5, "segment_id": "seg_3e946e61b5ab0970"}
+
+id: 63
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 63, "ts": "2026-09-27T19:31:00.780266+00:00", "decision_id": "dec_95874c0da11828da", "stage": "history_scan", "decision_type": "historically_unusual", "decision": 0.7, "confidence": 0.7, "segment_id": "seg_3e946e61b5ab0970"}
+
+id: 64
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 64, "ts": "2026-09-27T19:31:00.780314+00:00", "decision_id": "dec_3cd984ea71bcbd40", "stage": "history_scan", "decision_type": "material_change", "decision": 0.75, "confidence": 0.75, "segment_id": "seg_3e946e61b5ab0970"}
+
+id: 65
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 65, "ts": "2026-09-27T19:31:00.780337+00:00", "decision_id": "dec_94dc0c7f1c0ab486", "stage": "history_scan", "decision_type": "volatility_regime", "decision": "normal", "confidence": 0.5, "segment_id": "seg_3e946e61b5ab0970"}
+
+id: 66
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 66, "ts": "2026-09-27T19:31:00.780356+00:00", "decision_id": "dec_f95adb1aa3318dcc", "stage": "history_scan", "decision_type": "revenue_momentum", "decision": 3.7156, "confidence": 0.7773, "segment_id": "seg_d807119a6ed5934d"}
+
+id: 67
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 67, "ts": "2026-09-27T19:31:00.780374+00:00", "decision_id": "dec_db68f2daed4ad306", "stage": "history_scan", "decision_type": "margin_direction", "decision": "stable", "confidence": 0.5, "segment_id": "seg_d807119a6ed5934d"}
+
+id: 68
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 68, "ts": "2026-09-27T19:31:00.780392+00:00", "decision_id": "dec_c289f0adbeef6039", "stage": "history_scan", "decision_type": "historically_unusual", "decision": 0.7, "confidence": 0.7, "segment_id": "seg_d807119a6ed5934d"}
+
+id: 69
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 69, "ts": "2026-09-27T19:31:00.780409+00:00", "decision_id": "dec_49267bdfafa002d5", "stage": "history_scan", "decision_type": "material_change", "decision": 0.75, "confidence": 0.75, "segment_id": "seg_d807119a6ed5934d"}
+
+id: 70
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 70, "ts": "2026-09-27T19:31:00.780427+00:00", "decision_id": "dec_3cc7a8e255f6fd79", "stage": "history_scan", "decision_type": "volatility_regime", "decision": "normal", "confidence": 0.5, "segment_id": "seg_d807119a6ed5934d"}
+
+id: 71
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 71, "ts": "2026-09-27T19:31:00.780443+00:00", "decision_id": "dec_8eb1a73cf8aaf632", "stage": "history_scan", "decision_type": "revenue_momentum", "decision": 3.7156, "confidence": 0.7773, "segment_id": "seg_64723b55464da086"}
+
+id: 72
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 72, "ts": "2026-09-27T19:31:00.780458+00:00", "decision_id": "dec_1a2a27aaed0e5f39", "stage": "history_scan", "decision_type": "margin_direction", "decision": "stable", "confidence": 0.5, "segment_id": "seg_64723b55464da086"}
+
+id: 73
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 73, "ts": "2026-09-27T19:31:00.780474+00:00", "decision_id": "dec_ce18082de3cddb2e", "stage": "history_scan", "decision_type": "historically_unusual", "decision": 0.7, "confidence": 0.7, "segment_id": "seg_64723b55464da086"}
+
+id: 74
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 74, "ts": "2026-09-27T19:31:00.780492+00:00", "decision_id": "dec_b7ef5a257213bbba", "stage": "history_scan", "decision_type": "material_change", "decision": 0.75, "confidence": 0.75, "segment_id": "seg_64723b55464da086"}
+
+id: 75
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 75, "ts": "2026-09-27T19:31:00.780508+00:00", "decision_id": "dec_ff930bd211d020d6", "stage": "history_scan", "decision_type": "volatility_regime", "decision": "normal", "confidence": 0.5, "segment_id": "seg_64723b55464da086"}
+
+id: 76
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 76, "ts": "2026-09-27T19:31:00.780524+00:00", "decision_id": "dec_1c5f87a9ca1e7fe4", "stage": "history_scan", "decision_type": "revenue_momentum", "decision": 3.7156, "confidence": 0.7773, "segment_id": "seg_939e6437f04607a2"}
+
+id: 77
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 77, "ts": "2026-09-27T19:31:00.780540+00:00", "decision_id": "dec_d62c507681c04099", "stage": "history_scan", "decision_type": "margin_direction", "decision": "stable", "confidence": 0.5, "segment_id": "seg_939e6437f04607a2"}
+
+id: 78
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 78, "ts": "2026-09-27T19:31:00.780555+00:00", "decision_id": "dec_9041581afe5532f2", "stage": "history_scan", "decision_type": "historically_unusual", "decision": 0.7, "confidence": 0.7, "segment_id": "seg_939e6437f04607a2"}
+
+id: 79
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 79, "ts": "2026-09-27T19:31:00.780571+00:00", "decision_id": "dec_8ee3d693e634e757", "stage": "history_scan", "decision_type": "material_change", "decision": 0.75, "confidence": 0.75, "segment_id": "seg_939e6437f04607a2"}
+
+id: 80
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 80, "ts": "2026-09-27T19:31:00.780587+00:00", "decision_id": "dec_e75c6e9a0020f8c0", "stage": "history_scan", "decision_type": "volatility_regime", "decision": "normal", "confidence": 0.5, "segment_id": "seg_939e6437f04607a2"}
+
+id: 81
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 81, "ts": "2026-09-27T19:31:00.780606+00:00", "decision_id": "dec_f7f09d36d5e51bf5", "stage": "text_evidence", "decision_type": "source_is_material", "decision": 0.75, "confidence": 0.75, "segment_id": "src_fd8cbd3fe14448ba"}
+
+id: 82
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 82, "ts": "2026-09-27T19:31:00.780622+00:00", "decision_id": "dec_891b7ddce2db10b5", "stage": "text_evidence", "decision_type": "evidence_stance", "decision": "neutral", "confidence": 0.5, "segment_id": "src_fd8cbd3fe14448ba"}
+
+id: 83
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 83, "ts": "2026-09-27T19:31:00.780637+00:00", "decision_id": "dec_203e6275cf2e3775", "stage": "text_evidence", "decision_type": "source_is_material", "decision": 0.75, "confidence": 0.75, "segment_id": "src_6732d533c721a205"}
+
+id: 84
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 84, "ts": "2026-09-27T19:31:00.780653+00:00", "decision_id": "dec_2cfb321f8db89bd6", "stage": "text_evidence", "decision_type": "evidence_stance", "decision": "neutral", "confidence": 0.5, "segment_id": "src_6732d533c721a205"}
+
+id: 85
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 85, "ts": "2026-09-27T19:31:00.780679+00:00", "decision_id": "dec_490790db64f46477", "stage": "text_evidence", "decision_type": "source_is_material", "decision": 0.75, "confidence": 0.75, "segment_id": "src_dac93d7f4b447edb"}
+
+id: 86
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 86, "ts": "2026-09-27T19:31:00.780696+00:00", "decision_id": "dec_cbf3b9aa9f4093e5", "stage": "text_evidence", "decision_type": "evidence_stance", "decision": "neutral", "confidence": 0.5, "segment_id": "src_dac93d7f4b447edb"}
+
+id: 87
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 87, "ts": "2026-09-27T19:31:00.780714+00:00", "decision_id": "dec_5553ed2a5414a252", "stage": "text_evidence", "decision_type": "source_is_material", "decision": 0.75, "confidence": 0.75, "segment_id": "src_17655158d34b1761"}
+
+id: 88
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 88, "ts": "2026-09-27T19:31:00.780730+00:00", "decision_id": "dec_22d26a617bba6384", "stage": "text_evidence", "decision_type": "evidence_stance", "decision": "neutral", "confidence": 0.5, "segment_id": "src_17655158d34b1761"}
+
+id: 89
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 89, "ts": "2026-09-27T19:31:00.780746+00:00", "decision_id": "dec_a60236b0aedbccea", "stage": "text_evidence", "decision_type": "source_is_material", "decision": 0.75, "confidence": 0.75, "segment_id": "src_9810cc6da4dd3048"}
+
+id: 90
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 90, "ts": "2026-09-27T19:31:00.780765+00:00", "decision_id": "dec_4626496505eae7c5", "stage": "text_evidence", "decision_type": "evidence_stance", "decision": "neutral", "confidence": 0.5, "segment_id": "src_9810cc6da4dd3048"}
+
+id: 91
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 91, "ts": "2026-09-27T19:31:00.780782+00:00", "decision_id": "dec_809931a2b295aee6", "stage": "text_evidence", "decision_type": "source_is_material", "decision": 0.45, "confidence": 0.55, "segment_id": "src_44edc78779a3a14a"}
+
+id: 92
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 92, "ts": "2026-09-27T19:31:00.780798+00:00", "decision_id": "dec_da9d85a59a04c097", "stage": "text_evidence", "decision_type": "evidence_stance", "decision": "neutral", "confidence": 0.5, "segment_id": "src_44edc78779a3a14a"}
+
+id: 93
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 93, "ts": "2026-09-27T19:31:00.780813+00:00", "decision_id": "dec_915aab478981a436", "stage": "text_evidence", "decision_type": "source_is_material", "decision": 0.45, "confidence": 0.55, "segment_id": "src_684a26b504c2ff06"}
+
+id: 94
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 94, "ts": "2026-09-27T19:31:00.780828+00:00", "decision_id": "dec_b92b0e976807e0e0", "stage": "text_evidence", "decision_type": "evidence_stance", "decision": "neutral", "confidence": 0.5, "segment_id": "src_684a26b504c2ff06"}
+
+id: 95
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 95, "ts": "2026-09-27T19:31:00.780845+00:00", "decision_id": "dec_5cf77f289d391e59", "stage": "text_evidence", "decision_type": "source_is_material", "decision": 0.45, "confidence": 0.55, "segment_id": "src_bb0ef5e10c7c147f"}
+
+id: 96
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 96, "ts": "2026-09-27T19:31:00.780861+00:00", "decision_id": "dec_cbfa53719cc57c52", "stage": "text_evidence", "decision_type": "evidence_stance", "decision": "neutral", "confidence": 0.5, "segment_id": "src_bb0ef5e10c7c147f"}
+
+id: 97
+event: laya.completed
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 97, "ts": "2026-09-27T19:31:00.780881+00:00", "stage": "evidence_scan", "decisions": 62}
+
+id: 98
+event: calculation.started
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 98, "ts": "2026-09-27T19:31:00.780962+00:00", "pack": "all_standard"}
+
+id: 99
+event: calculation.completed
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 99, "ts": "2026-09-27T19:31:00.788369+00:00", "calc_id": "calc_revenue_growth_yoy", "name": "revenue_growth_yoy", "value": 4.5, "unit": "percent", "display": "4.5%", "status": "computed", "period_label": "Q3 FY2026 vs Q3 FY2025", "missing_inputs": []}
+
+id: 100
+event: calculation.completed
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 100, "ts": "2026-09-27T19:31:00.788430+00:00", "calc_id": "calc_revenue_growth_qoq", "name": "revenue_growth_qoq", "value": -5.88235294117647, "unit": "percent", "display": "-5.9%", "status": "computed", "period_label": "Q3 FY2026 vs Q2 FY2026", "missing_inputs": []}
+
+id: 101
+event: calculation.completed
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 101, "ts": "2026-09-27T19:31:00.788459+00:00", "calc_id": "calc_revenue_cagr_3y", "name": "revenue_cagr_3y", "value": null, "unit": "percent", "display": "unavailable", "status": "unavailable", "period_label": null, "missing_inputs": ["revenue_begin"]}
+
+id: 102
+event: calculation.completed
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 102, "ts": "2026-09-27T19:31:00.788481+00:00", "calc_id": "calc_gross_margin", "name": "gross_margin", "value": 45.0, "unit": "percent", "display": "45.0%", "status": "computed", "period_label": "TTM to 2026-06-27", "missing_inputs": []}
+
+id: 103
+event: calculation.completed
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 103, "ts": "2026-09-27T19:31:00.788504+00:00", "calc_id": "calc_operating_margin", "name": "operating_margin", "value": 30.5, "unit": "percent", "display": "30.5%", "status": "computed", "period_label": "TTM to 2026-06-27", "missing_inputs": []}
+
+id: 104
+event: calculation.completed
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 104, "ts": "2026-09-27T19:31:00.788522+00:00", "calc_id": "calc_net_margin", "name": "net_margin", "value": 25.0, "unit": "percent", "display": "25.0%", "status": "computed", "period_label": "TTM to 2026-06-27", "missing_inputs": []}
+
+id: 105
+event: calculation.completed
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 105, "ts": "2026-09-27T19:31:00.788602+00:00", "calc_id": "calc_fcf_margin", "name": "fcf_margin", "value": 25.928968584931887, "unit": "percent", "display": "25.9%", "status": "computed", "period_label": "TTM to 2026-06-27", "missing_inputs": []}
+
+id: 106
+event: calculation.completed
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 106, "ts": "2026-09-27T19:31:00.788621+00:00", "calc_id": "calc_operating_margin_change_bp", "name": "operating_margin_change_bp", "value": 0.0, "unit": "bp", "display": "0 bp", "status": "computed", "period_label": "Q3 FY2026 vs Q3 FY2025", "missing_inputs": []}
+
+id: 107
+event: calculation.completed
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 107, "ts": "2026-09-27T19:31:00.788639+00:00", "calc_id": "calc_free_cash_flow_ttm", "name": "free_cash_flow_ttm", "value": 97463492500.0, "unit": "USD", "display": "$97.5B", "status": "computed", "period_label": "TTM to 2026-06-27", "missing_inputs": []}
+
+id: 108
+event: calculation.completed
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 108, "ts": "2026-09-27T19:31:00.788656+00:00", "calc_id": "calc_eps_growth_yoy", "name": "eps_growth_yoy", "value": 6.382978723404261, "unit": "percent", "display": "6.4%", "status": "computed", "period_label": "Q3 FY2026 vs Q3 FY2025", "missing_inputs": []}
+
+id: 109
+event: calculation.completed
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 109, "ts": "2026-09-27T19:31:00.788682+00:00", "calc_id": "calc_market_cap", "name": "market_cap", "value": 5513020322093.101, "unit": "USD", "display": "$5.5T", "status": "computed", "period_label": "close 2026-09-25", "missing_inputs": []}
+
+id: 110
+event: calculation.completed
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 110, "ts": "2026-09-27T19:31:00.788707+00:00", "calc_id": "calc_enterprise_value", "name": "enterprise_value", "value": null, "unit": "USD", "display": "unavailable", "status": "unavailable", "period_label": "close 2026-09-25", "missing_inputs": ["total_debt", "cash_and_equivalents"]}
+
+id: 111
+event: calculation.completed
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 111, "ts": "2026-09-27T19:31:00.788725+00:00", "calc_id": "calc_pe_ttm", "name": "pe_ttm", "value": 63.3688524590164, "unit": "ratio", "display": "63.4×", "status": "computed", "period_label": "close 2026-09-25; EPS FY2025", "missing_inputs": []}
+
+id: 112
+event: calculation.completed
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 112, "ts": "2026-09-27T19:31:00.788740+00:00", "calc_id": "calc_ps_ttm", "name": "ps_ttm", "value": 14.66671541035153, "unit": "ratio", "display": "14.7×", "status": "computed", "period_label": "TTM to 2026-06-27", "missing_inputs": []}
+
+id: 113
+event: calculation.completed
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 113, "ts": "2026-09-27T19:31:00.788759+00:00", "calc_id": "calc_ev_ebitda_ttm", "name": "ev_ebitda_ttm", "value": null, "unit": "ratio", "display": "unavailable", "status": "unavailable", "period_label": null, "missing_inputs": ["total_debt", "cash_and_equivalents", "operating_income_ttm", "depreciation_amortization_ttm"]}
+
+id: 114
+event: calculation.completed
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 114, "ts": "2026-09-27T19:31:00.788778+00:00", "calc_id": "calc_fcf_yield_ttm", "name": "fcf_yield_ttm", "value": 1.7678783462745613, "unit": "percent", "display": "1.8%", "status": "computed", "period_label": "TTM to 2026-06-27", "missing_inputs": []}
+
+id: 115
+event: calculation.completed
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 115, "ts": "2026-09-27T19:31:00.788793+00:00", "calc_id": "calc_pe_5y_percentile", "name": "pe_5y_percentile", "value": null, "unit": "percentile", "display": "unavailable", "status": "unavailable", "period_label": null, "missing_inputs": ["eps_ttm", "pe_history"]}
+
+id: 116
+event: calculation.completed
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 116, "ts": "2026-09-27T19:31:00.788811+00:00", "calc_id": "calc_price_return_1m", "name": "price_return_1m", "value": 4.818591029882335, "unit": "percent", "display": "4.8%", "status": "computed", "period_label": "2026-08-25 to 2026-09-25", "missing_inputs": []}
+
+id: 117
+event: calculation.completed
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 117, "ts": "2026-09-27T19:31:00.788827+00:00", "calc_id": "calc_price_return_3m", "name": "price_return_3m", "value": 17.492401215805465, "unit": "percent", "display": "17.5%", "status": "computed", "period_label": "2026-06-25 to 2026-09-25", "missing_inputs": []}
+
+id: 118
+event: calculation.completed
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 118, "ts": "2026-09-27T19:31:00.788845+00:00", "calc_id": "calc_price_return_6m", "name": "price_return_6m", "value": 27.903513996426433, "unit": "percent", "display": "27.9%", "status": "computed", "period_label": "2026-03-25 to 2026-09-25", "missing_inputs": []}
+
+id: 119
+event: calculation.completed
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 119, "ts": "2026-09-27T19:31:00.788860+00:00", "calc_id": "calc_price_return_1y", "name": "price_return_1y", "value": 96.55751042408218, "unit": "percent", "display": "96.6%", "status": "computed", "period_label": "2025-09-25 to 2026-09-25", "missing_inputs": []}
+
+id: 120
+event: calculation.completed
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 120, "ts": "2026-09-27T19:31:00.788877+00:00", "calc_id": "calc_price_return_ytd", "name": "price_return_ytd", "value": 54.41000239674043, "unit": "percent", "display": "54.4%", "status": "computed", "period_label": "2025-12-31 to 2026-09-25", "missing_inputs": []}
+
+id: 121
+event: calculation.completed
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 121, "ts": "2026-09-27T19:31:00.788897+00:00", "calc_id": "calc_relative_return_1y_vs_market", "name": "relative_return_1y_vs_market", "value": 76.10265753263815, "unit": "percent", "display": "76.1%", "status": "computed", "period_label": "2025-09-25 to 2026-09-25", "missing_inputs": []}
+
+id: 122
+event: calculation.completed
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 122, "ts": "2026-09-27T19:31:00.788914+00:00", "calc_id": "calc_relative_return_1y_vs_sector", "name": "relative_return_1y_vs_sector", "value": 103.43879443847199, "unit": "percent", "display": "103.4%", "status": "computed", "period_label": "2025-09-25 to 2026-09-25", "missing_inputs": []}
+
+id: 123
+event: calculation.completed
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 123, "ts": "2026-09-27T19:31:00.788930+00:00", "calc_id": "calc_beta_1y_vs_market", "name": "beta_1y_vs_market", "value": 0.047176132623945446, "unit": "coefficient", "display": "0.05", "status": "computed", "period_label": "2025-09-25 to 2026-09-25", "missing_inputs": []}
+
+id: 124
+event: calculation.completed
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 124, "ts": "2026-09-27T19:31:00.788946+00:00", "calc_id": "calc_drawdown_vs_market_1y", "name": "drawdown_vs_market_1y", "value": -0.2899739863979067, "unit": "percent", "display": "-0.3%", "status": "computed", "period_label": "2025-09-25 to 2026-09-25", "missing_inputs": []}
+
+id: 125
+event: calculation.completed
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 125, "ts": "2026-09-27T19:31:00.788962+00:00", "calc_id": "calc_volatility_30d_annualized", "name": "volatility_30d_annualized", "value": 25.506566399513943, "unit": "percent", "display": "25.5%", "status": "computed", "period_label": "2026-08-14 to 2026-09-25", "missing_inputs": []}
+
+id: 126
+event: calculation.completed
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 126, "ts": "2026-09-27T19:31:00.788979+00:00", "calc_id": "calc_volatility_1y_annualized", "name": "volatility_1y_annualized", "value": 24.833410390108572, "unit": "percent", "display": "24.8%", "status": "computed", "period_label": "2025-09-25 to 2026-09-25", "missing_inputs": []}
+
+id: 127
+event: calculation.completed
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 127, "ts": "2026-09-27T19:31:00.788995+00:00", "calc_id": "calc_max_drawdown_1y", "name": "max_drawdown_1y", "value": -16.35342406567293, "unit": "percent", "display": "-16.4%", "status": "computed", "period_label": "2025-09-25 to 2026-09-25", "missing_inputs": []}
+
+id: 128
+event: calculation.completed
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 128, "ts": "2026-09-27T19:31:00.789011+00:00", "calc_id": "calc_ma_50", "name": "ma_50", "value": 354.8302, "unit": "USD_per_share", "display": "$354.83", "status": "computed", "period_label": "2026-07-20 to 2026-09-25", "missing_inputs": []}
+
+id: 129
+event: calculation.completed
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 129, "ts": "2026-09-27T19:31:00.789029+00:00", "calc_id": "calc_ma_200", "name": "ma_200", "value": 319.2436, "unit": "USD_per_share", "display": "$319.24", "status": "computed", "period_label": "2025-12-22 to 2026-09-25", "missing_inputs": []}
+
+id: 130
+event: calculation.completed
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 130, "ts": "2026-09-27T19:31:00.789046+00:00", "calc_id": "calc_price_vs_ma_200_pct", "name": "price_vs_ma_200_pct", "value": 21.083085142505595, "unit": "percent", "display": "21.1%", "status": "computed", "period_label": "2025-12-22 to 2026-09-25", "missing_inputs": []}
+
+id: 131
+event: laya.started
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 131, "ts": "2026-09-27T19:31:00.790171+00:00", "stage": "horizon", "question_sets": 1, "questions": 8}
+
+id: 132
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 132, "ts": "2026-09-27T19:31:00.791259+00:00", "decision_id": "dec_93c9b5a125039985", "stage": "horizon", "decision_type": "horizon_stance_near_term", "decision": "neutral", "confidence": 0.5, "segment_id": null}
+
+id: 133
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 133, "ts": "2026-09-27T19:31:00.791319+00:00", "decision_id": "dec_2a17341407a98970", "stage": "horizon", "decision_type": "horizon_stance_next_cycle", "decision": "neutral", "confidence": 0.5, "segment_id": null}
+
+id: 134
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 134, "ts": "2026-09-27T19:31:00.791343+00:00", "decision_id": "dec_799f4dfbc51fd3ce", "stage": "horizon", "decision_type": "horizon_stance_medium_term", "decision": "neutral", "confidence": 0.5, "segment_id": null}
+
+id: 135
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 135, "ts": "2026-09-27T19:31:00.791361+00:00", "decision_id": "dec_081e45e9817da7e3", "stage": "horizon", "decision_type": "horizon_stance_long_term", "decision": "neutral", "confidence": 0.5, "segment_id": null}
+
+id: 136
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 136, "ts": "2026-09-27T19:31:00.791382+00:00", "decision_id": "dec_1f725e253220c965", "stage": "horizon", "decision_type": "valuation_extremeness", "decision": 2.0, "confidence": 0.4343, "segment_id": null}
+
+id: 137
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 137, "ts": "2026-09-27T19:31:00.791400+00:00", "decision_id": "dec_e70624b19a4dfb64", "stage": "horizon", "decision_type": "benchmark_relative", "decision": "in_line", "confidence": 0.5, "segment_id": null}
+
+id: 138
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 138, "ts": "2026-09-27T19:31:00.791419+00:00", "decision_id": "dec_f7d8b4fca6c80f81", "stage": "horizon", "decision_type": "drawdown_nature", "decision": "mixed", "confidence": 0.5, "segment_id": null}
+
+id: 139
+event: laya.decision
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 139, "ts": "2026-09-27T19:31:00.791437+00:00", "decision_id": "dec_31c52f49c985ee96", "stage": "horizon", "decision_type": "growth_durability", "decision": 2.0, "confidence": 0.4984, "segment_id": null}
+
+id: 140
+event: laya.completed
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 140, "ts": "2026-09-27T19:31:00.791456+00:00", "stage": "horizon", "decisions": 8}
+
+id: 141
+event: spark.loading
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 141, "ts": "2026-09-27T19:31:00.793763+00:00", "profile": "fast", "context_ceiling": 32768, "kv_cache_type": "f16"}
+
+id: 142
+event: spark.started
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 142, "ts": "2026-09-27T19:31:00.798079+00:00", "profile": "fast", "context_ceiling": 32768, "prompt_tokens": 6520, "horizons": ["near_term", "next_cycle", "medium_term", "long_term"]}
+
+id: 143
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 143, "ts": "2026-09-27T19:31:00.798137+00:00", "text": "## Summary\n[scripted] Sc"}
+
+id: 144
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 144, "ts": "2026-09-27T19:31:00.798220+00:00", "text": "ripted synthesis for App"}
+
+id: 145
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 145, "ts": "2026-09-27T19:31:00.798256+00:00", "text": "le Inc. (AAPL): the sect"}
+
+id: 146
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 146, "ts": "2026-09-27T19:31:00.798304+00:00", "text": "ions below exercise the "}
+
+id: 147
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 147, "ts": "2026-09-27T19:31:00.798347+00:00", "text": "answer format with ids c"}
+
+id: 148
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 148, "ts": "2026-09-27T19:31:00.798377+00:00", "text": "ited from the bundle and"}
+
+id: 149
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 149, "ts": "2026-09-27T19:31:00.798398+00:00", "text": " are not an assessment ["}
+
+id: 150
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 150, "ts": "2026-09-27T19:31:00.798421+00:00", "text": "src_587c133c2376b2e8].\n\n"}
+
+id: 151
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 151, "ts": "2026-09-27T19:31:00.798452+00:00", "text": "## What changed\n- [scrip"}
+
+id: 152
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 152, "ts": "2026-09-27T19:31:00.798495+00:00", "text": "ted] The bundle lists it"}
+
+id: 153
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 153, "ts": "2026-09-27T19:31:00.798538+00:00", "text": "s most recent reporting "}
+
+id: 154
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 154, "ts": "2026-09-27T19:31:00.798581+00:00", "text": "period under important e"}
+
+id: 155
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 155, "ts": "2026-09-27T19:31:00.798629+00:00", "text": "vents [src_91bdab619e8f3"}
+
+id: 156
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 156, "ts": "2026-09-27T19:31:00.798679+00:00", "text": "7da].\n\n## Fundamentals\n["}
+
+id: 157
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 157, "ts": "2026-09-27T19:31:00.798722+00:00", "text": "scripted] Figures are qu"}
+
+id: 158
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 158, "ts": "2026-09-27T19:31:00.798764+00:00", "text": "oted exactly as provided"}
+
+id: 159
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 159, "ts": "2026-09-27T19:31:00.798809+00:00", "text": " in the calculated metri"}
+
+id: 160
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 160, "ts": "2026-09-27T19:31:00.798853+00:00", "text": "cs; nothing was recomput"}
+
+id: 161
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 161, "ts": "2026-09-27T19:31:00.798895+00:00", "text": "ed [src_587c133c2376b2e8"}
+
+id: 162
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 162, "ts": "2026-09-27T19:31:00.798937+00:00", "text": "].\n\n## Valuation\n[script"}
+
+id: 163
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 163, "ts": "2026-09-27T19:31:00.798980+00:00", "text": "ed] Valuation lines repe"}
+
+id: 164
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 164, "ts": "2026-09-27T19:31:00.799022+00:00", "text": "at the calculated ratios"}
+
+id: 165
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 165, "ts": "2026-09-27T19:31:00.799064+00:00", "text": " in the bundle and their"}
+
+id: 166
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 166, "ts": "2026-09-27T19:31:00.799108+00:00", "text": " period labels [src_91bd"}
+
+id: 167
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 167, "ts": "2026-09-27T19:31:00.799150+00:00", "text": "ab619e8f37da].\n\n## Bench"}
+
+id: 168
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 168, "ts": "2026-09-27T19:31:00.799197+00:00", "text": "mark context\n[scripted] "}
+
+id: 169
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 169, "ts": "2026-09-27T19:31:00.799239+00:00", "text": "Benchmark lines repeat t"}
+
+id: 170
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 170, "ts": "2026-09-27T19:31:00.799304+00:00", "text": "he benchmark context sup"}
+
+id: 171
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 171, "ts": "2026-09-27T19:31:00.799347+00:00", "text": "plied by the determinist"}
+
+id: 172
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 172, "ts": "2026-09-27T19:31:00.799391+00:00", "text": "ic layer [src_587c133c23"}
+
+id: 173
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 173, "ts": "2026-09-27T19:31:00.799434+00:00", "text": "76b2e8].\n\n## Historical "}
+
+id: 174
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 174, "ts": "2026-09-27T19:31:00.799477+00:00", "text": "context\n[scripted] Histo"}
+
+id: 175
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 175, "ts": "2026-09-27T19:31:00.799521+00:00", "text": "rical lines repeat the l"}
+
+id: 176
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 176, "ts": "2026-09-27T19:31:00.799564+00:00", "text": "isted analogues in the b"}
+
+id: 177
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 177, "ts": "2026-09-27T19:31:00.799605+00:00", "text": "undle [src_91bdab619e8f3"}
+
+id: 178
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 178, "ts": "2026-09-27T19:31:00.799678+00:00", "text": "7da].\n\n## Market context"}
+
+id: 179
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 179, "ts": "2026-09-27T19:31:00.799720+00:00", "text": "\n[scripted] Market lines"}
+
+id: 180
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 180, "ts": "2026-09-27T19:31:00.799763+00:00", "text": " repeat the secondary ex"}
+
+id: 181
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 181, "ts": "2026-09-27T19:31:00.799805+00:00", "text": "cerpts in the bundle [sr"}
+
+id: 182
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 182, "ts": "2026-09-27T19:31:00.799848+00:00", "text": "c_587c133c2376b2e8].\n\n##"}
+
+id: 183
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 183, "ts": "2026-09-27T19:31:00.799891+00:00", "text": " Bull evidence\n- [script"}
+
+id: 184
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 184, "ts": "2026-09-27T19:31:00.799934+00:00", "text": "ed] A bullet citing the "}
+
+id: 185
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 185, "ts": "2026-09-27T19:31:00.799977+00:00", "text": "first primary-source exc"}
+
+id: 186
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 186, "ts": "2026-09-27T19:31:00.800022+00:00", "text": "erpt in the bundle [src_"}
+
+id: 187
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 187, "ts": "2026-09-27T19:31:00.800064+00:00", "text": "91bdab619e8f37da].\n\n## B"}
+
+id: 188
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 188, "ts": "2026-09-27T19:31:00.800106+00:00", "text": "ear evidence\n- [scripted"}
+
+id: 189
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 189, "ts": "2026-09-27T19:31:00.800148+00:00", "text": "] A bullet citing a qual"}
+
+id: 190
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 190, "ts": "2026-09-27T19:31:00.800190+00:00", "text": "ifying statement in the "}
+
+id: 191
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 191, "ts": "2026-09-27T19:31:00.800236+00:00", "text": "bundle [src_587c133c2376"}
+
+id: 192
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 192, "ts": "2026-09-27T19:31:00.800291+00:00", "text": "b2e8].\n\n## Risks\n- [scri"}
+
+id: 193
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 193, "ts": "2026-09-27T19:31:00.800333+00:00", "text": "pted] A bullet repeating"}
+
+id: 194
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 194, "ts": "2026-09-27T19:31:00.800376+00:00", "text": " the freshness note from"}
+
+id: 195
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 195, "ts": "2026-09-27T19:31:00.800418+00:00", "text": " the bundle [src_91bdab6"}
+
+id: 196
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 196, "ts": "2026-09-27T19:31:00.800461+00:00", "text": "19e8f37da].\n\n## Conflict"}
+
+id: 197
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 197, "ts": "2026-09-27T19:31:00.800503+00:00", "text": "s\n- [scripted] conflicts"}
+
+id: 198
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 198, "ts": "2026-09-27T19:31:00.800546+00:00", "text": " were not assessed; see "}
+
+id: 199
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 199, "ts": "2026-09-27T19:31:00.800588+00:00", "text": "the structured conflicts"}
+
+id: 200
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 200, "ts": "2026-09-27T19:31:00.800630+00:00", "text": " list.\n\n## Uncertainties"}
+
+id: 201
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 201, "ts": "2026-09-27T19:31:00.800676+00:00", "text": "\n- [scripted] This text "}
+
+id: 202
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 202, "ts": "2026-09-27T19:31:00.800718+00:00", "text": "was produced by a test d"}
+
+id: 203
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 203, "ts": "2026-09-27T19:31:00.800761+00:00", "text": "ouble without a language"}
+
+id: 204
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 204, "ts": "2026-09-27T19:31:00.800803+00:00", "text": " model; it is not an ass"}
+
+id: 205
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 205, "ts": "2026-09-27T19:31:00.800846+00:00", "text": "essment.\n\n## Follow-up q"}
+
+id: 206
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 206, "ts": "2026-09-27T19:31:00.800889+00:00", "text": "uestions\n- [scripted] Wh"}
+
+id: 207
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 207, "ts": "2026-09-27T19:31:00.800931+00:00", "text": "ich upcoming disclosure "}
+
+id: 208
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 208, "ts": "2026-09-27T19:31:00.800974+00:00", "text": "would most change the cu"}
+
+id: 209
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 209, "ts": "2026-09-27T19:31:00.801017+00:00", "text": "rrent picture?\n\n## Horiz"}
+
+id: 210
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 210, "ts": "2026-09-27T19:31:00.801059+00:00", "text": "on: near_term\nStance: ne"}
+
+id: 211
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 211, "ts": "2026-09-27T19:31:00.801101+00:00", "text": "utral\n- [scripted] Over "}
+
+id: 212
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 212, "ts": "2026-09-27T19:31:00.801143+00:00", "text": "the near term horizon th"}
+
+id: 213
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 213, "ts": "2026-09-27T19:31:00.801231+00:00", "text": "is bullet cites evidence"}
+
+id: 214
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 214, "ts": "2026-09-27T19:31:00.801286+00:00", "text": " in the bundle for the s"}
+
+id: 215
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 215, "ts": "2026-09-27T19:31:00.801329+00:00", "text": "tated stance [src_587c13"}
+
+id: 216
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 216, "ts": "2026-09-27T19:31:00.801371+00:00", "text": "3c2376b2e8].\n\n## Horizon"}
+
+id: 217
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 217, "ts": "2026-09-27T19:31:00.801414+00:00", "text": ": next_cycle\nStance: neu"}
+
+id: 218
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 218, "ts": "2026-09-27T19:31:00.801455+00:00", "text": "tral\n- [scripted] Over t"}
+
+id: 219
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 219, "ts": "2026-09-27T19:31:00.801497+00:00", "text": "he next cycle horizon th"}
+
+id: 220
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 220, "ts": "2026-09-27T19:31:00.801539+00:00", "text": "is bullet cites evidence"}
+
+id: 221
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 221, "ts": "2026-09-27T19:31:00.801583+00:00", "text": " in the bundle for the s"}
+
+id: 222
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 222, "ts": "2026-09-27T19:31:00.801625+00:00", "text": "tated stance [src_587c13"}
+
+id: 223
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 223, "ts": "2026-09-27T19:31:00.801670+00:00", "text": "3c2376b2e8].\n\n## Horizon"}
+
+id: 224
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 224, "ts": "2026-09-27T19:31:00.801712+00:00", "text": ": medium_term\nStance: ne"}
+
+id: 225
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 225, "ts": "2026-09-27T19:31:00.801755+00:00", "text": "utral\n- [scripted] Over "}
+
+id: 226
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 226, "ts": "2026-09-27T19:31:00.801797+00:00", "text": "the medium term horizon "}
+
+id: 227
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 227, "ts": "2026-09-27T19:31:00.801839+00:00", "text": "this bullet cites eviden"}
+
+id: 228
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 228, "ts": "2026-09-27T19:31:00.801881+00:00", "text": "ce in the bundle for the"}
+
+id: 229
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 229, "ts": "2026-09-27T19:31:00.801923+00:00", "text": " stated stance [src_587c"}
+
+id: 230
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 230, "ts": "2026-09-27T19:31:00.801965+00:00", "text": "133c2376b2e8].\n\n## Horiz"}
+
+id: 231
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 231, "ts": "2026-09-27T19:31:00.802007+00:00", "text": "on: long_term\nStance: ne"}
+
+id: 232
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 232, "ts": "2026-09-27T19:31:00.802049+00:00", "text": "utral\n- [scripted] Over "}
+
+id: 233
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 233, "ts": "2026-09-27T19:31:00.802091+00:00", "text": "the long term horizon th"}
+
+id: 234
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 234, "ts": "2026-09-27T19:31:00.802133+00:00", "text": "is bullet cites evidence"}
+
+id: 235
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 235, "ts": "2026-09-27T19:31:00.802176+00:00", "text": " in the bundle for the s"}
+
+id: 236
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 236, "ts": "2026-09-27T19:31:00.802218+00:00", "text": "tated stance [src_587c13"}
+
+id: 237
+event: spark.token
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 237, "ts": "2026-09-27T19:31:00.802260+00:00", "text": "3c2376b2e8].\n"}
+
+id: 238
+event: spark.completed
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 238, "ts": "2026-09-27T19:31:00.802337+00:00", "prompt_tokens": 6520, "output_tokens": null, "time_to_first_token_ms": 0.10402999942016322, "total_ms": 4.338838999501604, "tokens_per_second": null, "truncated": false}
+
+id: 239
+event: analysis.completed
+data: {"analysis_id": "an_adb5eb6def97a81e", "seq": 239, "ts": "2026-09-27T19:31:00.807341+00:00", "status": "completed", "total_request_ms": 61.72216000049957}
+

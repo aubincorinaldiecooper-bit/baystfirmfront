@@ -68,6 +68,23 @@ describe("ThinkingState", () => {
     render(<ThinkingState label="Waiting for the synthesis model" active steps={[]} />);
     expect((screen.getByRole("button") as HTMLButtonElement).disabled).toBe(true);
   });
+
+  it("marks a stopped step without a check or a spinner", () => {
+    render(
+      <ThinkingState
+        label="Analysis cancelled"
+        active={false}
+        defaultExpanded
+        steps={[
+          { id: "a", label: "Scoring the evidence", status: "done" },
+          { id: "b", label: "Writing the assessment", status: "stopped" },
+        ]}
+      />,
+    );
+    expect(screen.getAllByLabelText("Done")).toHaveLength(1);
+    expect(screen.getAllByLabelText("Stopped")).toHaveLength(1);
+    expect(screen.queryByRole("img", { name: "In progress" })).toBeNull();
+  });
 });
 
 describe("StreamingText", () => {
@@ -148,6 +165,43 @@ describe("SidebarNav", () => {
     render(<SidebarNav workspaceName="W" recents={[{ id: "an_2", label: "Second" }]} onPick={onPick} />);
     fireEvent.click(screen.getByText("Second"));
     expect(onPick).toHaveBeenCalledWith("an_2", "Second", undefined);
+  });
+
+  it("selects by id, shows a row's detail and the caller's footer", () => {
+    render(
+      <SidebarNav
+        workspaceName="W"
+        recents={[
+          { id: "an_1", label: "Same question", detail: "AAPL" },
+          { id: "an_2", label: "Same question", detail: "AAPL · Failed" },
+        ]}
+        activeId="an_2"
+        recentsFooter={<button type="button">Load more</button>}
+        recentsEmpty={<p>Nothing yet</p>}
+      />,
+    );
+    const rows = screen.getAllByTitle("Same question");
+    expect(rows.map((r) => r.getAttribute("aria-current"))).toEqual([null, "true"]);
+    expect(rows[1].textContent).toBe("Same questionAAPL · Failed");
+    expect(screen.getByRole("button", { name: "Load more" })).toBeTruthy();
+    expect(screen.queryByText("Nothing yet")).toBeNull();
+  });
+
+  it("shows the caller's empty state only when there are no rows", () => {
+    render(<SidebarNav workspaceName="W" recents={[]} recentsEmpty={<p>Nothing yet</p>} recentsFooter={<span>footer</span>} />);
+    expect(screen.getByText("Nothing yet")).toBeTruthy();
+    expect(screen.queryByText("footer")).toBeNull();
+  });
+
+  it("can have its collapse controlled by the caller", () => {
+    const onCollapsedChange = vi.fn();
+    const { rerender } = render(<SidebarNav workspaceName="W" collapsed={false} onCollapsedChange={onCollapsedChange} />);
+    fireEvent.click(screen.getByRole("button", { name: "Collapse sidebar" }));
+    expect(onCollapsedChange).toHaveBeenCalledWith(true);
+    /* still open: the caller decides */
+    expect(screen.getByRole("complementary").getAttribute("data-sidebar-collapsed")).toBe("false");
+    rerender(<SidebarNav workspaceName="W" collapsed onCollapsedChange={onCollapsedChange} />);
+    expect(screen.getByRole("complementary").getAttribute("data-sidebar-collapsed")).toBe("true");
   });
 });
 
