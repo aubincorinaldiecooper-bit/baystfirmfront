@@ -1,7 +1,7 @@
 "use client";
 /* Copied from Beautiful UI (https://github.com/slev12397/beautiful-ui) — MIT License,
  * Copyright (c) 2026 Shane Levine. Full notice in LICENSE-THIRD-PARTY at the repo root.
- * Modified: demo content removed. */
+ * Modified: demo content removed; adds a "stopped" step status for work that ended without finishing. */
 
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
@@ -9,7 +9,7 @@ import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
  * THINKING — expandable execution trace, two variants
  *
  *   Steps   step list: spinner on active steps, muted checks
- *           on finished ones
+ *           on finished ones, a muted dash on stopped ones
  *   Search  a query plus the sources read, as links
  *
  * It renders exactly the steps it is given, with the status
@@ -20,7 +20,8 @@ import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
  * surface for recorded system state, never a reasoning viewer.
  * ───────────────────────────────────────────────────────── */
 
-export type ThinkingStepStatus = "active" | "done";
+/** "stopped": the work ended without finishing (cancelled or failed); shown without a check. */
+export type ThinkingStepStatus = "active" | "done" | "stopped";
 
 export type ThinkingStep = {
   id: string;
@@ -163,7 +164,11 @@ export default function ThinkingState({
                     <>
                       {variant === "Search" && <Dot />}
                       {variant === "Steps" &&
-                        (step.status === "done" ? (
+                        (step.status === "stopped" ? (
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink-3)" strokeWidth="2.5" strokeLinecap="round" className="shrink-0" aria-label="Stopped">
+                            <path d="M6 12h12" />
+                          </svg>
+                        ) : step.status === "done" ? (
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink-3)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0" aria-label="Done">
                             <path d="M20 6L9 17l-5-5" />
                           </svg>
