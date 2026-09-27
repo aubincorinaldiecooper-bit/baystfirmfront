@@ -233,6 +233,19 @@ describe("analysisReducer lifecycle", () => {
     expect(failed.spark.phase).toBe("completed");
   });
 
+  it("a running snapshot never supplies text, so a resumed stream is not appended twice", () => {
+    const firstToken = byName("spark.token");
+    const beforeTokens = applyEvents(initialAnalysisState, HAPPY_PATH.slice(0, firstToken));
+    expect(beforeTokens.spark.text).toBe("");
+    // the stream gave up before the first token; the fallback snapshot already holds two
+    const snapshot = completedResult({ status: "synthesizing", streamed_text: "Revenue grew ", partial: true });
+    const fallback = applyResult({ ...beforeTokens, streamFallback: true }, snapshot);
+    expect(fallback.spark.text).toBe("");
+    // the reconnect replays every token after the last applied seq, those two included
+    const resumed = applyEvents(fallback, HAPPY_PATH.slice(firstToken));
+    expect(resumed.spark.text).toBe(STREAMED_TEXT);
+  });
+
   it("a running snapshot never regresses the live status", () => {
     const live = applyEvents(initialAnalysisState, HAPPY_PATH.slice(0, 18));
     const snapshot = applyResult(live, completedResult({ status: "researching", streamed_text: "", partial: true }));

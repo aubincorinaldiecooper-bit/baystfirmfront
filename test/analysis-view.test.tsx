@@ -9,7 +9,7 @@
 import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import AnalysisView from "@/components/finance/AnalysisView";
-import type { AnalysisEvent, AnalysisResult } from "@/lib/api/types";
+import type { AnalysisEvent, AnalysisEventOf, AnalysisResult } from "@/lib/api/types";
 import { MILESTONE_EVENTS } from "@/lib/analysis/reducer";
 import { cancelledRun, capabilitiesFixture, clone, completedRun, failedRun, jsonResponse, notFound } from "./fixtures/backend";
 import { FakeEventSource, openWithFakeEventSource, stubBackend, type RouteHandler } from "./helpers/fake-backend";
@@ -274,7 +274,13 @@ describe("structured failure", () => {
       fireEvent.click(within(alert).getByRole("button", { name: "Run it again" }));
     });
     await waitFor(() => expect(nav.push).toHaveBeenCalledWith(`/analyses/${completedRun.created.analysis_id}`));
-    expect(backend.callsTo("POST", "/analyses")[0].body).toEqual({ query: request.query, profile: "fast", horizon: "multi_horizon" });
+    const instrument = events.find((e) => e.event === "instrument.resolved") as AnalysisEventOf<"instrument.resolved">;
+    expect(backend.callsTo("POST", "/analyses")[0].body).toEqual({
+      query: request.query,
+      profile: "fast",
+      horizon: "multi_horizon",
+      instrument: { symbol: instrument.symbol, exchange: instrument.exchange ?? null },
+    });
     /* research that happened before the failure is still shown */
     await screen.findByRole("region", { name: /^Sources/ });
   });

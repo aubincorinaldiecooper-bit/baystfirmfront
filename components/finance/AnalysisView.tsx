@@ -129,7 +129,13 @@ export default function AnalysisView({ analysisId }: { analysisId: string }) {
 
   const resubmit = () => {
     if (!state.query || !state.profile) return;
-    rerun.submit({ query: state.query, profile: state.profile, horizon: state.resolvedHorizon ?? "auto" });
+    rerun.submit({
+      query: state.query,
+      profile: state.profile,
+      horizon: state.resolvedHorizon ?? "auto",
+      /* the company this run resolved (possibly picked from candidates): a rerun must not ask again */
+      ...(state.instrument ? { instrument: { symbol: state.instrument.symbol, exchange: state.instrument.exchange ?? null } } : {}),
+    });
   };
 
   return (

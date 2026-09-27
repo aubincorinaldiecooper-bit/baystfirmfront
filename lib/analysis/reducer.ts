@@ -611,14 +611,14 @@ export function applyResult(state: AnalysisViewState, result: AnalysisResult): A
  * `streamed_text` is exactly what the backend streamed as `spark.token`. On a
  * terminal result it is canonical: it replaces whatever prefix a lost stream
  * left behind (tokens missed between the disconnect and the end are in it)
- * and the Spark phase settles. A running snapshot only fills in text the view
- * has not seen at all, since the live stream may be ahead of it.
+ * and the Spark phase settles. A running snapshot never supplies text: until
+ * the run ends, the event stream is the only source, because a resumed stream
+ * replays every token after the last seq this view applied, including tokens
+ * the snapshot already holds, and they would be appended twice.
  */
 function settleSpark(spark: SparkProgress, result: AnalysisResult, terminal: boolean): SparkProgress {
   const persisted = result.streamed_text;
-  if (!terminal) {
-    return spark.text.length === 0 && persisted ? { ...spark, text: persisted } : spark;
-  }
+  if (!terminal) return spark;
   const text = persisted || spark.text;
   const phase: SparkPhase = spark.phase === "streaming" || (persisted.length > 0 && spark.phase !== "completed") ? "completed" : spark.phase;
   return text === spark.text && phase === spark.phase ? spark : { ...spark, text, phase };
