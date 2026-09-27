@@ -65,7 +65,7 @@ describe("ThinkingState", () => {
     rerender(<ThinkingState label="Researched 1 source" active={false} steps={steps} />);
     expect(screen.getByRole("button").getAttribute("aria-expanded")).toBe("false");
     cleanup();
-    render(<ThinkingState label="Waiting for the synthesis model" active steps={[]} />);
+    render(<ThinkingState label="Thinking…" active steps={[]} />);
     expect((screen.getByRole("button") as HTMLButtonElement).disabled).toBe(true);
   });
 

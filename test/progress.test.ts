@@ -5,7 +5,7 @@
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MILESTONE_EVENTS, applyEvents, initialAnalysisState } from "@/lib/analysis/reducer";
-import { layaStageLabel, phaseLabel, progressSteps } from "@/lib/analysis/progress";
+import { THINKING, layaStageLabel, phaseLabel, progressSteps } from "@/lib/analysis/progress";
 import type { AnalysisEvent, AnalysisEventOf } from "@/lib/api/types";
 import { cancelledRun, completedRun, failedRun } from "./fixtures/backend";
 
@@ -88,7 +88,7 @@ describe("progress while running", () => {
     expect(steps[steps.length - 1]).toMatchObject({ event: "spark.started", status: "active", label: "Writing the assessment" });
   });
 
-  it("shows a wait for the single Spark lane from spark.queued, with the backend's count", () => {
+  it("shows a synthesis wait as the ordinary thinking state, with no step of its own", () => {
     /* a spark.queued event built from the schema (the doubles' single run never queues) */
     const loadingIndex = events.findIndex((e) => e.event === "spark.loading");
     const queued = {
@@ -97,12 +97,14 @@ describe("progress while running", () => {
       seq: events[loadingIndex].seq /* takes the place of spark.loading */,
       ts: events[loadingIndex].ts,
       profile: "fast",
+      stage: "synthesis",
       active_analyses: 2,
     } as AnalysisEvent;
-    const state = applyEvents(initialAnalysisState, [...events.slice(0, loadingIndex), queued]);
-    expect(phaseLabel(state)).toBe("Waiting for the synthesis model");
-    const steps = progressSteps(state);
-    expect(steps[steps.length - 1]).toMatchObject({ event: "spark.queued", status: "active", detail: "2 analyses active" });
+    const before = applyEvents(initialAnalysisState, events.slice(0, loadingIndex));
+    const state = applyEvents(before, [queued]);
+    expect(state.status).toBe("synthesizing");
+    expect(phaseLabel(state)).toBe(THINKING);
+    expect(progressSteps(state)).toEqual(progressSteps(before)); // no extra step, no churn
   });
 
   it("does not change as time passes", () => {
@@ -132,5 +134,57 @@ describe("progress of runs that stop", () => {
 
   it("has no steps before any event arrived", () => {
     expect(progressSteps(initialAnalysisState)).toEqual([]);
+  });
+});
+
+describe("question understanding before research (Bayanalytics#4)", () => {
+  const { events } = completedRun;
+  const resolvedAt = events.findIndex((e) => e.event === "instrument.resolved");
+  const researchAt = events.findIndex((e) => e.event === "research.started");
+  const base = { analysis_id: events[0].analysis_id, ts: events[resolvedAt].ts };
+  const upToResolved = events.slice(0, resolvedAt + 1);
+  /* pass-1 events built from the backend schema, renumbered after instrument.resolved */
+  const lastSeq = events[resolvedAt].seq;
+  const pass1 = (withStage: boolean) =>
+    [
+      { ...base, event: "spark.queued", seq: lastSeq + 0.1, profile: "fast", active_analyses: 2, ...(withStage ? { stage: "query_understanding" } : {}) },
+      { ...base, event: "spark.loading", seq: lastSeq + 0.2, profile: "fast", context_ceiling: 32768, kv_cache_type: "q8_0" },
+    ] as AnalysisEvent[];
+
+  it("reads as thinking as soon as the company is known, with nothing added for an instant turn", () => {
+    const resolved = applyEvents(initialAnalysisState, upToResolved);
+    expect(resolved.status).toBe("resolving");
+    expect(phaseLabel(resolved)).toBe(THINKING);
+    expect(phaseLabel(applyEvents(initialAnalysisState, events.slice(0, resolvedAt)))).toBe("Identifying the company");
+  });
+
+  it.each([
+    ["with the stage", true],
+    ["from an older backend without it", false],
+  ])("keeps a wait and a model load before research inside the thinking state (%s)", (_name, withStage) => {
+    const resolved = applyEvents(initialAnalysisState, upToResolved);
+    const waiting = applyEvents(resolved, pass1(withStage).slice(0, 1));
+    expect(waiting.status).toBe("resolving");
+    expect(waiting.understanding).toBe("waiting");
+    expect(waiting.spark.phase).toBe("idle");
+    expect(phaseLabel(waiting)).toBe(THINKING);
+    const loading = applyEvents(waiting, pass1(withStage).slice(1));
+    expect(loading.understanding).toBe("loading");
+    expect(loading.status).toBe("resolving");
+    expect(progressSteps(loading)).toEqual(progressSteps(resolved)); // no queue or model step
+    const researching = applyEvents(loading, [events[researchAt]]);
+    expect(researching.understanding).toBe("idle");
+    expect(phaseLabel(researching)).toBe("Researching");
+  });
+
+  it("never names the queue, the scheduler or the model lane", () => {
+    const states = [
+      applyEvents(initialAnalysisState, [...upToResolved, ...pass1(true)]),
+      applyEvents(initialAnalysisState, events),
+    ];
+    for (const state of states) {
+      const texts = [phaseLabel(state), ...progressSteps(state).flatMap((s) => [s.label, s.detail ?? ""])];
+      for (const text of texts) expect(text).not.toMatch(/wait|queue|scheduler|slot|lane|spark/i);
+    }
   });
 });

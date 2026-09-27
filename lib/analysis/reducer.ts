@@ -178,6 +178,12 @@ export interface AnalysisViewState {
   cancelRequested: boolean;
   /** One entry per received phase event, in seq order: the progress trace's source. */
   milestones: Milestone[];
+  /**
+   * Spark reading the question before research (Bayanalytics#4): `waiting`
+   * for its turn or `loading` the model. Shown as "thinking", never as a
+   * queue; cleared when research starts.
+   */
+  understanding: "idle" | "waiting" | "loading";
 }
 
 /** Events that mark a step of the recorded progress (tokens, decisions and per-item events do not). */
@@ -190,7 +196,6 @@ export const MILESTONE_EVENTS = [
   "normalization.completed",
   "laya.started",
   "calculation.started",
-  "spark.queued",
   "spark.loading",
   "spark.started",
 ] as const satisfies readonly EventName[];
@@ -201,6 +206,15 @@ export interface Milestone {
   event: MilestoneEvent;
   /** The Laya stage for `laya.started`, the round for `research.started`. */
   key: string | null;
+}
+
+/**
+ * Before research starts, Spark is only ever reading the question
+ * (Bayanalytics#4): a wait or a model load then belongs to that pass, not to
+ * the synthesis.
+ */
+function isUnderstandingPhase(state: AnalysisViewState): boolean {
+  return !state.research.started && !isTerminalUiStatus(state.status);
 }
 
 function isMilestoneEvent(name: EventName): name is MilestoneEvent {
@@ -264,6 +278,7 @@ export const initialAnalysisState: AnalysisViewState = {
   streamFallback: false,
   cancelRequested: false,
   milestones: [],
+  understanding: "idle",
 };
 
 /* ── event application ───────────────────────────────────── */
@@ -274,6 +289,8 @@ const SCORING_STAGES: ReadonlySet<string> = new Set(["evidence_scan", "history_s
 export function applyEvent(state: AnalysisViewState, event: AnalysisEvent): AnalysisViewState {
   const next = reduceEvent(state, event);
   if (next === state || !isMilestoneEvent(event.event)) return next;
+  /* a model load for question understanding is part of "thinking", not a step of its own */
+  if (event.event === "spark.loading" && isUnderstandingPhase(state)) return next;
   const key =
     event.event === "laya.started" ? event.stage : event.event === "research.started" ? String(event.round) : null;
   return { ...next, milestones: [...next.milestones, { seq: event.seq, event: event.event, key }] };
@@ -309,6 +326,7 @@ function reduceEvent(state: AnalysisViewState, event: AnalysisEvent): AnalysisVi
       return {
         ...base,
         status: "researching",
+        understanding: "idle",
         research: {
           ...base.research,
           started: true,
@@ -433,12 +451,17 @@ function reduceEvent(state: AnalysisViewState, event: AnalysisEvent): AnalysisVi
       return { ...base, status: "calculating", calculations: { ...base.calculations, started: true, items } };
     }
     case "spark.queued":
+      if (event.stage === "query_understanding" || isUnderstandingPhase(base)) {
+        /* the question is being read before research: the status does not move */
+        return { ...base, understanding: "waiting" };
+      }
       return {
         ...base,
         status: "synthesizing",
         spark: { ...base.spark, phase: "queued", activeAnalyses: event.active_analyses },
       };
     case "spark.loading":
+      if (isUnderstandingPhase(base)) return { ...base, understanding: "loading" };
       return {
         ...base,
         status: "synthesizing",

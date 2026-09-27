@@ -766,6 +766,13 @@ export type CalculationCompletedData = CalculationEventView;
 export interface SparkQueuedData {
   profile: Profile;
   active_analyses: number;
+  /**
+   * Optional (Bayanalytics#4): which Spark pass is waiting for the lane,
+   * `query_understanding` (before research) or `synthesis`. Absent from a
+   * backend without question understanding, where a wait is always the
+   * synthesis's. Other values are tolerated.
+   */
+  stage?: string;
 }
 
 export interface SparkLoadingData {

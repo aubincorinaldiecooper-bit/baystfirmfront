@@ -147,14 +147,6 @@ function describe(
       const count = state.calculations.items.length;
       return { label: "Running the deterministic calculations", detail: count > 0 ? `${count} recorded` : undefined };
     }
-    case "spark.queued":
-      return {
-        label: "Waiting for the synthesis model",
-        detail:
-          state.spark.activeAnalyses !== null
-            ? `${plural(state.spark.activeAnalyses, "analysis", "analyses")} active`
-            : undefined,
-      };
     case "spark.loading":
       return { label: "Loading the synthesis model", detail: profileLabel(state.profile) || undefined };
     case "spark.started":
@@ -172,6 +164,9 @@ function isInterrupted(state: AnalysisViewState): boolean {
   return state.status === "failed" || state.status === "cancelled";
 }
 
+/** The header while Spark works without visible output (a turn on the lane is internal). */
+export const THINKING = "Thinking…";
+
 /** Header text for the trace: the current recorded phase, or the outcome. */
 export function phaseLabel(state: AnalysisViewState): string {
   switch (state.status) {
@@ -182,7 +177,9 @@ export function phaseLabel(state: AnalysisViewState): string {
     case "queued":
       return "Queued";
     case "resolving":
-      return "Identifying the company";
+      /* after the company is known, Spark reads the question (it may wait its turn or load
+       * the model first): all of it is the ordinary thinking state */
+      return state.instrument ? THINKING : "Identifying the company";
     case "researching":
       return "Researching";
     case "normalizing":
@@ -194,7 +191,7 @@ export function phaseLabel(state: AnalysisViewState): string {
     case "synthesizing":
       switch (state.spark.phase) {
         case "queued":
-          return "Waiting for the synthesis model";
+          return THINKING;
         case "loading":
           return "Loading the synthesis model";
         case "streaming":
