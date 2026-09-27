@@ -183,7 +183,7 @@ export async function proxyRequest(request: Request, pathSegments: string[], dep
 /**
  * Relay `GET /analyses/{id}/events` as a live stream: the upstream body is
  * handed to the response as a `ReadableStream` chunk by chunk (no buffering,
- * no re-serialisation), `Last-Event-ID` and `?after=` are forwarded so the
+ * no re-serialisation), `Last-Event-ID` (preferred) or `?after=` is forwarded so the
  * backend replays only the tail, and the upstream request is aborted the
  * moment the browser goes away.
  */
@@ -204,8 +204,10 @@ export async function proxyEventStream(request: Request, analysisId: string, dep
   const lastEventId = request.headers.get("last-event-id");
   const search = new URLSearchParams();
   const after = incoming.searchParams.get("after");
-  if (after !== null && /^\d+$/.test(after)) search.set("after", after);
-  else if (lastEventId && /^\d+$/.test(lastEventId.trim())) search.set("after", lastEventId.trim());
+  /* A native EventSource reconnect keeps its original ?after= while sending a
+   * newer Last-Event-ID, so a valid header wins: it is the latest delivered seq. */
+  if (lastEventId && /^\d+$/.test(lastEventId.trim())) search.set("after", lastEventId.trim());
+  else if (after !== null && /^\d+$/.test(after)) search.set("after", after);
   const query = search.toString();
   const url = `${config.apiUrl}/analyses/${encodeURIComponent(analysisId)}/events${query ? `?${query}` : ""}`;
 

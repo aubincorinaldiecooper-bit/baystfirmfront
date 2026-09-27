@@ -333,14 +333,12 @@ export function openAnalysisEvents(
         const reader = body.getReader();
         const decoder = new TextDecoder();
         const parser = new SseParser();
-        let sawEvent = false;
         try {
           for (;;) {
             const { value, done } = await reader.read();
             const frames = done ? parser.end() : parser.feed(decoder.decode(value, { stream: true }));
             for (const frame of frames) {
               if (frame.retry !== null) retryDelay = frame.retry;
-              if (frame.event) sawEvent = true;
               if (deliver(frame)) {
                 close();
                 return;
@@ -351,8 +349,9 @@ export function openAnalysisEvents(
         } catch (cause) {
           if (state.closed || isAbortError(cause)) return;
         }
-        /* the stream ended without a terminal event: reconnect from the last id */
-        if (sawEvent) state.attempts = 0;
+        /* the stream ended without a terminal event: reconnect from the last id.
+         * Only a newly delivered event resets the budget (in deliver): a replayed
+         * duplicate, a foreign or malformed frame is not progress. */
         if (!(await backoff())) return;
       }
 

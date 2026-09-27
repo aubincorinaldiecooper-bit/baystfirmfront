@@ -199,6 +199,20 @@ describe("openAnalysisEvents (fetch transport)", () => {
     expect(c.reconnects.map((r) => r.attempt)).toEqual([1, 2]);
   });
 
+  it("does not count replayed, foreign or unknown frames as progress when reconnecting", async () => {
+    const partial = toSseStream(HAPPY_PATH.slice(0, 3), ["connected"]);
+    const foreign = JSON.stringify({ ...HAPPY_PATH[3], analysis_id: "an_other" });
+    const noise = `${toSseStream(HAPPY_PATH.slice(0, 3))}event: mystery\ndata: {}\n\nevent: ${HAPPY_PATH[3].event}\ndata: ${foreign}\n\n`;
+    const fetchSpy = vi.fn().mockResolvedValueOnce(sseResponse(partial)).mockImplementation(async () => sseResponse(noise));
+    const c = collect();
+    openAnalysisEvents(ANALYSIS_ID, c.handlers, { transport: "fetch", fetch: fetchSpy, retryDelayMs: 0, maxReconnects: 2 });
+    await vi.waitFor(() => expect(c.fallbacks).toHaveLength(1));
+    expect(c.fallbacks[0]).toEqual({ kind: "exhausted", attempts: 2 });
+    expect(fetchSpy).toHaveBeenCalledTimes(3);
+    expect(c.reconnects.map((r) => r.attempt)).toEqual([1, 2]);
+    expect(c.events.map((e) => e.seq)).toEqual([1, 2, 3]);
+  });
+
   it("treats a network failure as a reconnect, not a fallback", async () => {
     const fetchSpy = vi
       .fn()

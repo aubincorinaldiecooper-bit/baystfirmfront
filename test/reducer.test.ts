@@ -216,6 +216,23 @@ describe("analysisReducer lifecycle", () => {
     expect(settled.totalRequestMs).toBe(61234.5);
   });
 
+  it("a terminal result replaces a partial stream with the canonical text and settles Spark", () => {
+    const firstToken = HAPPY_PATH.findIndex((e) => e.event === "spark.token");
+    expect(firstToken).toBeGreaterThan(0);
+    const cut = applyEvents(initialAnalysisState, HAPPY_PATH.slice(0, firstToken + 1)); // stream lost after one token
+    expect(cut.spark.phase).toBe("streaming");
+    expect(cut.spark.text.length).toBeGreaterThan(0);
+    expect(cut.spark.text.length).toBeLessThan(STREAMED_TEXT.length);
+    const settled = applyResult({ ...cut, streamFallback: true }, completedResult());
+    expect(settled.status).toBe("completed");
+    expect(settled.spark.text).toBe(STREAMED_TEXT);
+    expect(settled.spark.phase).toBe("completed");
+    // A terminal result without persisted text keeps what was streamed and still settles the phase.
+    const failed = applyResult(cut, completedResult({ status: "failed", streamed_text: "", partial: true }));
+    expect(failed.spark.text).toBe(cut.spark.text);
+    expect(failed.spark.phase).toBe("completed");
+  });
+
   it("a running snapshot never regresses the live status", () => {
     const live = applyEvents(initialAnalysisState, HAPPY_PATH.slice(0, 18));
     const snapshot = applyResult(live, completedResult({ status: "researching", streamed_text: "", partial: true }));

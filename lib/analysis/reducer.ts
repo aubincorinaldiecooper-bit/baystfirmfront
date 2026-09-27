@@ -499,11 +499,25 @@ export function applyResult(state: AnalysisViewState, result: AnalysisResult): A
     error: result.error ?? state.error,
     partial: result.partial || state.partial,
     totalRequestMs: result.telemetry.total_request_ms ?? state.totalRequestMs,
-    spark:
-      state.spark.text.length === 0 && result.streamed_text
-        ? { ...state.spark, text: result.streamed_text, phase: terminal ? "completed" : state.spark.phase }
-        : state.spark,
+    spark: settleSpark(state.spark, result, terminal),
   };
+}
+
+/**
+ * `streamed_text` is exactly what the backend streamed as `spark.token`. On a
+ * terminal result it is canonical: it replaces whatever prefix a lost stream
+ * left behind (tokens missed between the disconnect and the end are in it)
+ * and the Spark phase settles. A running snapshot only fills in text the view
+ * has not seen at all, since the live stream may be ahead of it.
+ */
+function settleSpark(spark: SparkProgress, result: AnalysisResult, terminal: boolean): SparkProgress {
+  const persisted = result.streamed_text;
+  if (!terminal) {
+    return spark.text.length === 0 && persisted ? { ...spark, text: persisted } : spark;
+  }
+  const text = persisted || spark.text;
+  const phase: SparkPhase = spark.phase === "streaming" || (persisted.length > 0 && spark.phase !== "completed") ? "completed" : spark.phase;
+  return text === spark.text && phase === spark.phase ? spark : { ...spark, text, phase };
 }
 
 /* ── field pickers (drop the envelope, keep the payload) ─── */

@@ -239,6 +239,17 @@ describe("proxyEventStream", () => {
     expect(garbage.calls[0].url).toBe("http://backend.test/api/v1/analyses/an_1/events");
   });
 
+  it("prefers a newer Last-Event-ID over the stale ?after= of a native reconnect", async () => {
+    const up = liveUpstream();
+    await proxyEventStream(req("analyses/an_1/events?after=3", { headers: { "last-event-id": "9" } }), "an_1", { fetch: up.fetchImpl, config: CONFIG });
+    expect(up.calls[0].url).toBe("http://backend.test/api/v1/analyses/an_1/events?after=9");
+    expect(new Headers(up.calls[0].init.headers).get("last-event-id")).toBe("9");
+
+    const invalid = liveUpstream();
+    await proxyEventStream(req("analyses/an_1/events?after=12", { headers: { "last-event-id": "x" } }), "an_1", { fetch: invalid.fetchImpl, config: CONFIG });
+    expect(invalid.calls[0].url).toBe("http://backend.test/api/v1/analyses/an_1/events?after=12");
+  });
+
   it("aborts the upstream request when the browser cancels the stream", async () => {
     const up = liveUpstream();
     const response = await proxyEventStream(req("analyses/an_1/events"), "an_1", { fetch: up.fetchImpl, config: CONFIG });
