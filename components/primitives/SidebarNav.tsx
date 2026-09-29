@@ -1,7 +1,8 @@
 "use client";
 /* Copied from Beautiful UI (https://github.com/slev12397/beautiful-ui) — MIT License,
  * Copyright (c) 2026 Shane Levine. Full notice in LICENSE-THIRD-PARTY at the repo root.
- * Modified: demo content removed. */
+ * Modified: demo content removed; adds selection by id, a per-row detail, empty/footer slots
+ * for the history list and an optional controlled collapse. */
 
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
@@ -19,6 +20,8 @@ import GlideMenu from "@/components/primitives/GlideMenu";
  * empty lists render nothing, the workspace control is only a
  * menu when menu items are supplied, and the new-item and
  * footer buttons appear only when their handlers are given.
+ * The history list can show a caller-given empty state and
+ * a footer (e.g. "load more") under the rows.
  * ───────────────────────────────────────────────────────── */
 
 export type SidebarNavItem = {
@@ -33,6 +36,8 @@ export type SidebarRecent = {
   id: string;
   label: string;
   prompt?: string;
+  /** short muted trailing text, e.g. a ticker or a status */
+  detail?: string;
 };
 
 export type SidebarMenuItem = {
@@ -68,6 +73,15 @@ type SidebarNavProps = {
   recents?: SidebarRecent[];
   /** controlled selection in the history list (matched by label) */
   activeTitle?: string | null;
+  /** controlled selection in the history list by id; wins over `activeTitle` */
+  activeId?: string | null;
+  /** shown in place of the history list when `recents` is empty */
+  recentsEmpty?: ReactNode;
+  /** shown under the history rows, e.g. a load-more control */
+  recentsFooter?: ReactNode;
+  /** controlled collapse; omit to let the sidebar own it */
+  collapsed?: boolean;
+  onCollapsedChange?: (collapsed: boolean) => void;
   className?: string;
   fill?: boolean;
   /** label of the new-item button; shown together with `onNew` */
@@ -207,6 +221,11 @@ export default function SidebarNav({
   navItems = [],
   recents = [],
   activeTitle,
+  activeId,
+  recentsEmpty,
+  recentsFooter,
+  collapsed: controlledCollapsed,
+  onCollapsedChange,
   className = "",
   fill = false,
   newLabel,
@@ -220,7 +239,12 @@ export default function SidebarNav({
   labels,
 }: SidebarNavProps) {
   const copy = { ...DEFAULT_LABELS, ...labels };
-  const [collapsed, setCollapsed] = useState(false);
+  const [innerCollapsed, setInnerCollapsed] = useState(false);
+  const collapsed = controlledCollapsed ?? innerCollapsed;
+  const setCollapsed = (next: boolean) => {
+    if (controlledCollapsed === undefined) setInnerCollapsed(next);
+    onCollapsedChange?.(next);
+  };
   const [internalNav, setInternalNav] = useState<string | null>(null);
   const currentNav = activeNav ?? internalNav;
   const selectNav = (key: string) => {
@@ -441,7 +465,7 @@ export default function SidebarNav({
 
               <GlideGroup>
                 {visibleRecents.map((item) => {
-                  const active = item.label === selectedTitle;
+                  const active = activeId !== undefined ? item.id === activeId : item.label === selectedTitle;
                   return (
                     <button
                       key={item.id}
@@ -460,6 +484,9 @@ export default function SidebarNav({
                       <span className={`sidebar-copy min-w-0 flex-1 truncate text-[14px] font-medium ${active ? "text-ink" : "text-ink-2"}`}>
                         {item.label}
                       </span>
+                      {item.detail && (
+                        <span className="sidebar-copy ml-2 shrink-0 text-[11.5px] font-medium text-ink-3">{item.detail}</span>
+                      )}
                     </button>
                   );
                 })}
@@ -467,8 +494,10 @@ export default function SidebarNav({
                   <div className="sidebar-copy mx-2 px-2 py-2 text-[12.5px] text-ink-3">{copy.noMatches}</div>
                 )}
               </GlideGroup>
+              {recentsFooter && <div className="sidebar-copy mx-2 mt-1">{recentsFooter}</div>}
             </>
           )}
+          {recents.length === 0 && recentsEmpty && <div className="sidebar-copy mx-2">{recentsEmpty}</div>}
         </div>
 
         {footerLabel && (

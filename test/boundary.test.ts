@@ -43,7 +43,7 @@ describe("proxy boundary", () => {
   });
 
   it("client-side modules never touch process.env", () => {
-    const clientDirs = ["lib/api", "lib/analysis", "components", "app/page.tsx", "app/layout.tsx"];
+    const clientDirs = ["lib/api", "lib/analysis", "components", "app/(workspace)", "app/layout.tsx"];
     const offenders = files.filter((f) => {
       const path = rel(f);
       return clientDirs.some((d) => path === d || path.startsWith(`${d}/`)) && /process\.env\.BAY|process\.env\[/.test(read(f));

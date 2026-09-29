@@ -52,6 +52,10 @@ export type AnalysisStatus =
 export const TERMINAL_STATUSES = ["completed", "failed", "cancelled"] as const;
 export type TerminalStatus = (typeof TERMINAL_STATUSES)[number];
 
+export function isTerminalStatus(status: string): status is TerminalStatus {
+  return (TERMINAL_STATUSES as readonly string[]).includes(status);
+}
+
 export type Stance = "bullish" | "neutral" | "bearish" | "mixed";
 
 export type SourceType =
@@ -461,6 +465,77 @@ export interface Telemetry {
   versions: VersionInfo;
 }
 
+/* ── optional result fields from open backend PRs ─────────
+ * Absent on backend main. The UI renders them only when present
+ * (presence checks), so it works unchanged against main.
+ * PR #3 (thesis diff + valuation reconciliation): schemas/results.py
+ * `ThesisDiff`, `StanceChange`, `MetricChange`, `FreshnessChange`, and
+ * calculations/reconciliation.py `meta["reconciliation"]`. */
+
+export interface StanceChange {
+  /** "overall" or a horizon key. */
+  scope: string;
+  previous: Stance | null;
+  current: Stance | null;
+  /** Both known and different. */
+  changed: boolean;
+  /** `overall` only: the horizons both assessments covered. */
+  compared_horizons: string[];
+}
+
+export interface MetricChange {
+  name: string;
+  unit: string;
+  previous_value: number | null;
+  current_value: number | null;
+  delta: number | null;
+  previous_display: string;
+  current_display: string;
+  previous_period: string | null;
+  current_period: string | null;
+  previous_calc_id: string | null;
+  current_calc_id: string | null;
+}
+
+export interface FreshnessChange {
+  previous_latest_quarter_end: string | null;
+  current_latest_quarter_end: string | null;
+  new_quarter: boolean;
+  previous_price_date: string | null;
+  current_price_date: string | null;
+  newer_prices: boolean;
+}
+
+export interface ThesisDiff {
+  previous_analysis_id: string;
+  previous_as_of: string;
+  previous_created_at: string;
+  previous_horizon: ResolvedHorizon;
+  overall: StanceChange;
+  horizons: StanceChange[];
+  metrics: MetricChange[];
+  new_conflicts: string[];
+  resolved_conflicts: string[];
+  new_uncertainties: string[];
+  resolved_uncertainties: string[];
+  freshness: FreshnessChange;
+  stance_changed: boolean;
+  /** The two runs assessed different sets of horizons. */
+  horizon_scope_changed: boolean;
+  /** Deterministic one-line statements from the backend. */
+  summary: string[];
+}
+
+/** `CalculationResult.meta.reconciliation` on a `valuation_reconciliation_Ny` headline (PR #3). */
+export interface ReconciliationRecord {
+  verdict: string;
+  verdict_rule?: string | null;
+  identity?: string | null;
+  contributions_formula?: string | null;
+  component_calcs?: Record<string, string> | null;
+  [key: string]: unknown;
+}
+
 export interface AnalysisResult {
   analysis_id: string;
   status: AnalysisStatus;
@@ -484,6 +559,11 @@ export interface AnalysisResult {
   /** True when cancelled/failed with some content preserved, or when a
    * completed synthesis was cut off / a horizon section is missing. */
   partial: boolean;
+  /** PR #3, optional: the comparison with the prior completed assessment. */
+  thesis_diff?: ThesisDiff | null;
+  /** PR #4, optional and unstable: product-level requirement labels. Read
+   * through `requirementLabels()`, never rendered raw. */
+  requirements?: unknown;
 }
 
 /* ── capabilities / health (schemas/capabilities.py) ────── */
@@ -607,12 +687,20 @@ export interface ResearchStartedData {
   round: number;
   intents: string[];
   evidence_gaps: string[];
+  /* PR #4 (optional, unstable). Kept `unknown` on purpose: only product-level
+   * requirement labels are read (see `requirementLabels`); the intent and the
+   * interpretation source are never rendered. */
+  question_intent?: unknown;
+  requirements?: unknown;
+  interpretation_source?: unknown;
 }
 
 export interface ResearchQueryData {
   intent: string;
   kind: string;
-  query: string;
+  /** The search text; `null` for structured retrievals (EDGAR, prices, benchmarks). */
+  query: string | null;
+  /** Product-level description, e.g. "latest EDGAR filings for <company>". */
   label: string;
   round: number;
 }
@@ -678,6 +766,13 @@ export type CalculationCompletedData = CalculationEventView;
 export interface SparkQueuedData {
   profile: Profile;
   active_analyses: number;
+  /**
+   * Optional (Bayanalytics#4): which Spark pass is waiting for the lane,
+   * `query_understanding` (before research) or `synthesis`. Absent from a
+   * backend without question understanding, where a wait is always the
+   * synthesis's. Other values are tolerated.
+   */
+  stage?: string;
 }
 
 export interface SparkLoadingData {

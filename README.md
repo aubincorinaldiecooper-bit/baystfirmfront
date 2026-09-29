@@ -63,10 +63,27 @@ npm run dev                         # http://localhost:3000
 ```
 
 Start the backend separately (`cd backend && .venv/bin/bayanalytics serve` in the BayAnalytics
-repository). The home page reads `GET /capabilities` through the proxy and shows the real Fast /
-Deep availability with the backend's reasons, voice availability, whether web search is
-configured, and the deployment. Nothing on the page is a placeholder: when the backend is down
-the page says so and shows the error code.
+repository). Then:
+
+- `/` asks the question: free text, the Fast | Deep profile (availability and the backend's
+  reason from `GET /capabilities`; an unavailable profile cannot be chosen) and the horizon
+  (`auto` lets the backend read it from the question). Sending is `POST /analyses`. A 422
+  `AMBIGUOUS_INSTRUMENT` shows the backend's candidates; choosing one resubmits the same question
+  with `instrument: {symbol, exchange}`. The backend's capabilities are listed underneath.
+- `/analyses/{id}` is one analysis. It reads `GET /analyses/{id}`: a finished analysis is rendered
+  from its result; a running one is attached to its event stream from the beginning, so a reload
+  replays every recorded event and rebuilds the same view. Progress is one step per received phase
+  event (research queries with the backend's labels, sources found and rejected, Laya stages as
+  product-level labels, Spark queued / loading / writing); Spark's tokens stream as they arrive;
+  on `analysis.completed` the structured result replaces the live text. Cancel calls
+  `POST /analyses/{id}/cancel` and the terminal event decides. A dropped connection is retried
+  with `Last-Event-ID`; if the stream gives up, the durable state is read and the page reconnects
+  from the last seq on demand or when the browser is back online.
+- The sidebar is the real history (`GET /analyses`, keyset pages, "Load more" while the backend
+  returns a cursor). On narrow screens it is a drawer.
+
+Nothing on the pages is a placeholder: every figure is a backend `display` string or value, and
+when the backend is down the page says so and shows the error code.
 
 Checks:
 
@@ -82,7 +99,9 @@ npm run build       # next build
 ```
 app/
   layout.tsx                      Inter + JetBrains Mono, theme boot (from Beautiful UI)
-  page.tsx                        the shell with the backend status
+  (workspace)/layout.tsx          the shell (history sidebar) shared by every page
+  (workspace)/page.tsx            the question composer and the backend status
+  (workspace)/analyses/[id]/      one analysis per URL (reload and history links reattach)
   globals.css                     the Beautiful UI foundation stylesheet, intact
   api/bay/[...path]/route.ts      GET/POST passthrough
   api/bay/analyses/[id]/events/   SSE relay
@@ -91,18 +110,31 @@ components/
                                   (see "Beautiful UI primitives" below)
   atoms/                          Button, SegmentedControl, StatusPill (Beautiful UI, unmodified)
   site/ThemeSync.tsx, ThemeToggle.tsx
-  finance/FinanceShell.tsx        the product shell (no demo scenarios)
+  finance/FinanceShell.tsx        the product shell: sidebar / drawer and the page pane
+  finance/HistorySidebar.tsx      GET /analyses history, load more, empty and error states
+  finance/AnalysisComposer.tsx    question, profile, horizon, POST /analyses, candidate picker
+  finance/AnalysisView.tsx        one analysis: progress, streamed text, result, cancel, errors
+  finance/ProgressPanel.tsx       the trace (ThinkingState) and the sources found so far
+  finance/result/                 the structured result, section by section
+  finance/ErrorPanels.tsx, CandidatePicker.tsx, BackendStatus.tsx, PageHeader.tsx, ui.tsx
 lib/
   api/types.ts                    TypeScript mirrors of the backend schemas and the 20 events
   api/client.ts                   BayApiClient + ApiError normalisation
   api/sse.ts                      SSE frame parser + stream handle (EventSource / fetch)
   api/capabilities.ts             /capabilities loaded once, profile availability with reasons
   api/history.ts                  cursor pagination for GET /analyses
-  analysis/reducer.ts             pure event → UI state reducer (dedupe by seq)
+  analysis/reducer.ts             pure event → UI state reducer (dedupe by seq, milestones, attach)
+  analysis/progress.ts            the progress steps, one per received phase event
+  analysis/useAnalysisRun.ts      an analysis page's lifecycle: snapshot, replay, result, reconnect
+  analysis/useSubmitAnalysis.ts   POST /analyses with the ambiguity flow
+  analysis/requirements.ts        PR #4 requirement labels, read defensively
+  analysis/citations.ts, labels.ts  citation chips in Spark's text; display labels (no maths)
+  api/deps.tsx                    the client and SSE opener, injectable for tests
   auth/session.ts                 the session seam (anonymous)
   server/env.ts, proxy.ts         server-only configuration and the proxy
 docs/AUTH.md                      the future authentication model
-test/                             vitest suites and the synthetic event fixture
+test/                             vitest suites, the synthetic event fixture and backend-produced
+                                  fixtures (test/fixtures/backend, see test/fixtures/backend.ts)
 ```
 
 ### Beautiful UI primitives
@@ -144,6 +176,14 @@ those components until it is pruned against visual checks.
   also sets `partial` from `spark.completed.truncated`.
 - When the stream cannot be recovered the SSE handle calls `onFallback` once; the durable state
   comes from `GET /analyses/{id}` (`applyResult` merges it without regressing a live status).
+- A running job's `GET /analyses/{id}` snapshot reports `partial: true` for any started job, so
+  only a terminal result's `partial` marks content as incomplete.
+- `research.query.query` is `null` for structured retrievals (EDGAR, prices, benchmarks); the
+  product-level `label` is what the trace shows.
+- Optional fields from open backend PRs are rendered only when present: `thesis_diff` and the
+  `valuation_reconciliation_Ny` calculations' `meta.reconciliation` (PR #3), and `requirements`
+  on `research.started` and on the result (PR #4, short string labels only; the question intent
+  and interpretation source are never shown).
 
 ## Status
 
@@ -151,17 +191,22 @@ Verified in this repository, with the backend contract as the reference:
 
 | Verified with stubs and the contract (vitest) | Verified by building | Not yet executed anywhere |
 | --- | --- | --- |
-| Reducer over the documented event sequence, replay dedupe, cancel vs failed, partial, result merge | `next build` of the shell, both route handlers registered as dynamic Node routes | A request against a running BayAnalytics backend (no model weights, no SEC/Stooq access in the build environment) |
-| SSE frame parser (split chunks, CRLF, comments, retry), reconnect with `Last-Event-ID` and `?after=`, terminal close, HTTP-error and exhaustion fallback, EventSource dedupe | Lint and strict typecheck | Browser-side `EventSource` reconnect against a real stream |
+| Reducer over the documented event sequence, replay dedupe, cancel vs failed, partial, result merge | `next build` of the shell, both route handlers registered as dynamic Node routes | Real models (Laya, Spark), live SEC EDGAR / Stooq / SearXNG research |
+| SSE frame parser (split chunks, CRLF, comments, retry), reconnect with `Last-Event-ID` and `?after=`, terminal close, HTTP-error and exhaustion fallback, EventSource dedupe | Lint and strict typecheck | |
+| Reducer and progress trace over complete event sequences the backend produced with its own test doubles (completed, failed, cancelled), the backend's raw SSE transcript, replays with duplicates, reconnect mid-stream, attach after reload | | |
+| Pages with the real reducer and SSE handle on a controllable EventSource: attach and replay, streamed text then result, drop / fallback / reconnect from the last seq / back online, cancel, structured failure and rerun, not found; composer (candidate picker, profile availability, horizon, 429 / 503 / validation errors); history paging, empty and error states; result rendering with and without the optional PR #3 / PR #4 fields and without Laya internals | | |
 | Client error normalisation: 422 ambiguity with candidates, 429 with `Retry-After`, 401, 503 profile unavailable, network and bad-response cases | | Voice upload end to end |
 | Proxy: key injected server-side and absent otherwise, JSON/status/`Retry-After` passthrough, body limits, route allow-list, SSE chunk-by-chunk relay, `Last-Event-ID` forwarding, upstream abort on disconnect, error envelopes | | |
 | Static boundary: no `NEXT_PUBLIC_` backend config, `BAY_*` read only in `lib/server/env.ts`, server modules guarded by `server-only`; `test/bundle.test.ts` builds with sentinel values and greps `.next/static` for the variable names and the values | | |
 | No demo content in shipped code (`test/demo-content.test.ts`); kept primitives render only their props, with no timers, and nothing when empty (`test/primitives.test.tsx`) | | |
 
-Not implemented yet (next changes): the prompt bar and Fast | Deep control wired to
-`POST /analyses`, the analysis thread (progress, streamed answer, structured result), the
-evidence pane, the history sidebar, the ambiguity picker, cancellation UI, voice input, and
-authentication (see `docs/AUTH.md`).
+Also run once for this change, outside `npm test`: `next build && next start` against the real
+BayAnalytics API over HTTP on 127.0.0.1, wired with the backend's own test doubles, driven in
+Chromium (submit, live progress, reload mid-run, a killed proxy and the reconnect, cancel, the
+ambiguity picker, a queued second run, the mobile drawer). That harness is not part of this
+repository.
+
+Not implemented yet (next changes): voice input and authentication (see `docs/AUTH.md`).
 
 ## Licensing
 
