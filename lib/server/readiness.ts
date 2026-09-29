@@ -37,10 +37,33 @@ export async function checkBayReadiness(deps: ReadinessDeps = {}): Promise<Respo
       );
     }
 
+    // The backend answers 200 while degraded or down (its body carries the overall status), so a 2xx
+    // alone does not mean it can run an analysis.
+    const backendStatus = await readBackendStatus(upstream);
+    if (backendStatus !== "ok") {
+      return Response.json(
+        { status: "backend_not_ready", backend_status: backendStatus },
+        { status: 503, headers: { "cache-control": "no-store" } },
+      );
+    }
+
     return Response.json({ status: "ok" }, { status: 200, headers: { "cache-control": "no-store" } });
   } catch {
     return Response.json({ status: "backend_unreachable" }, { status: 503, headers: { "cache-control": "no-store" } });
   } finally {
     clearTimeout(timeout);
+  }
+}
+
+const BACKEND_STATUSES = new Set(["ok", "degraded", "down"]);
+
+/** The backend's overall status, or "unknown" for a body that is not its health JSON. */
+async function readBackendStatus(upstream: Response): Promise<string> {
+  try {
+    const body: unknown = await upstream.json();
+    const status = typeof body === "object" && body !== null ? (body as { status?: unknown }).status : undefined;
+    return typeof status === "string" && BACKEND_STATUSES.has(status) ? status : "unknown";
+  } catch {
+    return "unknown";
   }
 }
