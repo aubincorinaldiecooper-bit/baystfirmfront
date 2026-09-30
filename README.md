@@ -72,10 +72,15 @@ repository). Then:
   with `instrument: {symbol, exchange}`. The backend's capabilities are listed underneath.
 - `/analyses/{id}` is one analysis. It reads `GET /analyses/{id}`: a finished analysis is rendered
   from its result; a running one is attached to its event stream from the beginning, so a reload
-  replays every recorded event and rebuilds the same view. Progress is one step per received phase
-  event (research queries with the backend's labels, sources found and rejected, Laya stages as
-  product-level labels, Spark queued / loading / writing); Spark's tokens stream as they arrive;
-  on `analysis.completed` the structured result replaces the live text. Cancel calls
+  replays every recorded event and rebuilds the same view. The page is a workspace: the main
+  window (Company performance | Trading view; charts render only from price series or quarterly
+  figures the backend sends, and say so plainly when there are none, as with the current
+  web-search-only backend), the live research dock under it (the live view of the current
+  research step and the activity feed: searches and their hits, each page requested and whether
+  it was kept or skipped and why, all from recorded events), and a collapsible right panel with
+  the analysis (progress, one step per received phase event; Spark's tokens as they arrive; the
+  structured result on completion) and the symbol (a browser-only watchlist, key stats from the
+  backend's calculations). A citation chip shows its source in the live view. Cancel calls
   `POST /analyses/{id}/cancel` and the terminal event decides. A dropped connection is retried
   with `Last-Event-ID`; if the stream gives up, the durable state is read and the page reconnects
   from the last seq on demand or when the browser is back online.
@@ -113,18 +118,21 @@ components/
   finance/FinanceShell.tsx        the product shell: sidebar / drawer and the page pane
   finance/HistorySidebar.tsx      GET /analyses history, load more, empty and error states
   finance/AnalysisComposer.tsx    question, profile, horizon, POST /analyses, candidate picker
-  finance/AnalysisView.tsx        one analysis: progress, streamed text, result, cancel, errors
-  finance/ProgressPanel.tsx       the trace (ThinkingState) and the sources found so far
+  finance/AnalysisView.tsx        one analysis: the workspace layout, cancel, errors
+  finance/analysis/               main window, SVG charts, live research dock, side panel, symbol tab
+  finance/ProgressPanel.tsx       the trace (ThinkingState)
   finance/result/                 the structured result, section by section
   finance/ErrorPanels.tsx, CandidatePicker.tsx, BackendStatus.tsx, PageHeader.tsx, ui.tsx
 lib/
-  api/types.ts                    TypeScript mirrors of the backend schemas and the 20 events
+  api/types.ts                    TypeScript mirrors of the backend schemas and the events
   api/client.ts                   BayApiClient + ApiError normalisation
   api/sse.ts                      SSE frame parser + stream handle (EventSource / fetch)
   api/capabilities.ts             /capabilities loaded once, profile availability with reasons
   api/history.ts                  cursor pagination for GET /analyses
   analysis/reducer.ts             pure event → UI state reducer (dedupe by seq, milestones, attach)
   analysis/progress.ts            the progress steps, one per received phase event
+  analysis/activity.ts            the live research dock's feed and live view, from recorded state
+  market/                         series math, formatting, key stats, the localStorage watchlist
   analysis/useAnalysisRun.ts      an analysis page's lifecycle: snapshot, replay, result, reconnect
   analysis/useSubmitAnalysis.ts   POST /analyses with the ambiguity flow
   analysis/requirements.ts        PR #4 requirement labels, read defensively
