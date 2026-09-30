@@ -10,7 +10,9 @@ import {
   type StreamFallbackReason,
 } from "@/lib/api/sse";
 import type { AnalysisEvent } from "@/lib/api/types";
+import { EVENT_NAMES } from "@/lib/api/types";
 import { ANALYSIS_ID, HAPPY_PATH, toSse, toSseStream } from "./fixtures/events";
+import { LIVE_EVENTS, LIVE_ID, MARKET_EVENTS, URLS } from "./fixtures/live";
 
 /* ── parser ──────────────────────────────────────────────── */
 
@@ -345,6 +347,27 @@ describe("openAnalysisEvents (EventSource transport)", () => {
     controller.abort();
     expect(handle.closed).toBe(true);
     expect(FakeEventSource.instances[0].closed).toBe(true);
+  });
+
+  it("delivers the live-research and market events on both transports instead of dropping them", async () => {
+    const names = ["research.search_results", "research.fetching", "research.fetch_skipped", "market.series", "market.fundamentals"] as const;
+    for (const name of names) expect(EVENT_NAMES).toContain(name);
+    const live = [...LIVE_EVENTS, ...MARKET_EVENTS];
+
+    FakeEventSource.instances = [];
+    const viaEs = collect();
+    openAnalysisEvents(LIVE_ID, viaEs.handlers, { EventSource: FakeEventSource });
+    for (const event of live) FakeEventSource.instances[0].emit(event);
+    expect(viaEs.events.map((e) => e.event)).toEqual(live.map((e) => e.event));
+
+    const unknown: SseFrame[] = [];
+    const viaFetch = collect();
+    const fetchSpy = vi.fn(async () => sseResponse(toSseStream(live)));
+    const handle = openAnalysisEvents(LIVE_ID, { ...viaFetch.handlers, onUnknownEvent: (f) => unknown.push(f) }, { transport: "fetch", fetch: fetchSpy, retryDelayMs: 0 });
+    await vi.waitFor(() => expect(viaFetch.events).toHaveLength(live.length));
+    expect(viaFetch.events.find((e) => e.event === "research.fetching")).toMatchObject({ url: URLS.kept, kind: "web" });
+    expect(unknown).toEqual([]);
+    handle.close();
   });
 
   it("auto transport picks fetch when no EventSource global exists", () => {

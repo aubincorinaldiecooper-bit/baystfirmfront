@@ -9,7 +9,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import LoadingState from "@/components/primitives/LoadingState";
 import PromptBar, { type PromptOption } from "@/components/primitives/PromptBar";
-import { profileUnavailableMessage, type CapabilitiesView } from "@/lib/api/capabilities";
+import { profileUnavailableMessage, WEB_SEARCH_OFF_MESSAGE, type CapabilitiesView } from "@/lib/api/capabilities";
 import { HORIZON_LABELS, SINGLE_HORIZONS, type Horizon, type Profile } from "@/lib/api/types";
 import { useSubmitAnalysis } from "@/lib/analysis/useSubmitAnalysis";
 import CandidatePicker from "./CandidatePicker";
@@ -69,7 +69,8 @@ export default function AnalysisComposer({ initialQuery = "" }: { initialQuery?:
   }, [state]);
 
   const submitting = state.status === "submitting";
-  const canSend = Boolean(view && view.anyProfileAvailable && profile) && !submitting;
+  const searchOff = view?.webSearch === false;
+  const canSend = Boolean(view && view.anyProfileAvailable && profile) && !submitting && !searchOff;
 
   return (
     <div className="flex flex-col gap-3">
@@ -115,6 +116,8 @@ export default function AnalysisComposer({ initialQuery = "" }: { initialQuery?:
       {capabilities.status === "error" && capabilities.error && (
         <RequestErrorPanel error={capabilities.error} onRetry={capabilities.reload} />
       )}
+
+      {searchOff && <Notice kind="warn" role="status" title={WEB_SEARCH_OFF_MESSAGE} />}
 
       {view && !view.anyProfileAvailable && (
         <Notice kind="warn" role="status" title="No analysis profile is available on this backend right now.">

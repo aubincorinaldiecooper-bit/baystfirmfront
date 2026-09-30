@@ -61,6 +61,20 @@
   --tooltip-muted: oklch(0.731 0.008 260.731);
   --tooltip-border: oklch(0.356 0.007 264.474);
 
+  /* market views — text-safe semantic inks (≥ 4.5:1 on page, surface, inset
+   * and the tints) for signed figures, candles and small labels */
+  --gain: oklch(0.5 0.13 150);
+  --loss: oklch(0.53 0.19 25);
+  --warn: oklch(0.54 0.15 50);
+  --accent-text: oklch(0.5 0.18 256);
+  /* text on a gain/loss price tag */
+  --tag-fg: oklch(1 0 0);
+
+  /* chart series (validated categorical palette); graphics only, never text */
+  --series-company: #2a78d6;
+  --series-market: #eb6834;
+  --series-sector: #1baf7a;
+
   /* shadows — our solid hairline ring + shadow-plugin's smooth layered stacks
    * (--shadow-xs…lg come from shadow-plugin/unprefixed) so every surface reads
    * consistently across the app. */
@@ -107,6 +121,16 @@
   --tooltip-muted: oklch(0.731 0.008 260.731);
   --tooltip-border: oklch(0.308 0.006 258.354);
 
+  --gain: oklch(0.77 0.15 153);
+  --loss: oklch(0.75 0.15 20);
+  --warn: oklch(0.79 0.14 58);
+  --accent-text: var(--accent-ink);
+  --tag-fg: var(--page);
+
+  --series-company: #3987e5;
+  --series-market: #d95926;
+  --series-sector: #199e70;
+
   --shadow-hairline: 0 0 0 1px var(--line);
   /* Elevation rings go to a subtle *light* hairline in dark mode: the ring
    * paints over the surface behind the element, so a low-alpha white edge
@@ -146,6 +170,14 @@
   --color-orange-tint: var(--orange-tint);
   --color-red: var(--red);
   --color-red-tint: var(--red-tint);
+  --color-gain: var(--gain);
+  --color-loss: var(--loss);
+  --color-warn: var(--warn);
+  --color-accent-text: var(--accent-text);
+  --color-tag-fg: var(--tag-fg);
+  --color-series-company: var(--series-company);
+  --color-series-market: var(--series-market);
+  --color-series-sector: var(--series-sector);
 
   /* shadows */
   --shadow-hairline: var(--shadow-hairline);

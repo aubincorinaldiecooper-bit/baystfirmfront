@@ -46,8 +46,8 @@ export default function BackendStatus({ capabilities: result }: { capabilities: 
           <Row
             icon={<Globe size={15} aria-hidden />}
             label="Web search"
-            value={capabilities.execution.search_configured ? "Configured" : "Not configured — filings and prices only"}
-            muted={!capabilities.execution.search_configured}
+            value={(capabilities.webSearch ?? capabilities.execution.search_configured) ? "Configured" : "Not configured — analyses can't run"}
+            muted={!(capabilities.webSearch ?? capabilities.execution.search_configured)}
           />
           <Row icon={<Server size={15} aria-hidden />} label="Deployment" value={capabilities.deployment} mono last />
         </div>

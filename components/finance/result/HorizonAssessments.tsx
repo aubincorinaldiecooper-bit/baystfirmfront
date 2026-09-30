@@ -29,7 +29,7 @@ export default function HorizonAssessments({
   if (items.length === 0) return null;
   return (
     <Section id="horizons" title="By horizon" count={items.length}>
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 @3xl:grid-cols-2">
         {items.map((item) => (
           <article
             key={item.horizon}

@@ -12,6 +12,10 @@ import AnalysisView from "@/components/finance/AnalysisView";
 import type { AnalysisEvent, AnalysisEventOf, AnalysisResult } from "@/lib/api/types";
 import { MILESTONE_EVENTS } from "@/lib/analysis/reducer";
 import { cancelledRun, capabilitiesFixture, clone, completedRun, failedRun, jsonResponse, notFound } from "./fixtures/backend";
+import { completedResult } from "./fixtures/events";
+import { LIVE_EVENTS, LIVE_ID, URLS, seqOf } from "./fixtures/live";
+import { WATCHLIST_KEY } from "@/lib/market/watchlist";
+import { NO_PRICE_HISTORY, NO_QUARTERLY_FIGURES } from "@/lib/market/model";
 import { FakeEventSource, openWithFakeEventSource, stubBackend, type RouteHandler } from "./helpers/fake-backend";
 import { renderWorkspace } from "./helpers/workspace";
 
@@ -25,6 +29,7 @@ afterEach(cleanup);
 beforeEach(() => {
   FakeEventSource.reset();
   nav.push.mockReset();
+  window.localStorage.clear();
 });
 
 const running = (result: AnalysisResult, status: AnalysisResult["status"] = "researching"): AnalysisResult => ({
@@ -349,5 +354,139 @@ describe("opening an analysis", () => {
       fireEvent.click(within(alert).getByRole("button", { name: "Try again" }));
     });
     await screen.findByRole("region", { name: /^Assessment$/ });
+  });
+});
+
+describe("the analysis workspace", () => {
+  const liveResult = running(completedResult({ analysis_id: LIVE_ID, query: "Assess Example Holdings." }));
+  const upTo = (predicate: (e: AnalysisEvent) => boolean) => LIVE_EVENTS.filter((e) => e.seq <= seqOf(predicate));
+  const dockToggle = () => screen.getByRole("button", { name: /(Collapse|Expand) live research/ });
+
+  it("follows a running analysis in the live research dock, from recorded events only", async () => {
+    setup(LIVE_ID, [liveResult]);
+    await waitFor(() => expect(FakeEventSource.instances).toHaveLength(1));
+    const es = FakeEventSource.latest();
+    await emit(es, upTo((e) => e.event === "research.fetching" && e.url === URLS.kept));
+
+    const dock = screen.getByRole("region", { name: "Live research" });
+    expect(dockToggle().getAttribute("aria-expanded")).toBe("true");
+    expect(within(dock).getByText("Live")).toBeTruthy();
+    expect(within(dock).getByText("Reading news.example.com")).toBeTruthy();
+    const view = screen.getByRole("region", { name: "Live view" });
+    expect(view.textContent).toContain("Reading news.example.com…");
+    const feed = within(dock).getByRole("list", { name: "Research activity" });
+    expect(within(feed).getByRole("button", { name: /Searched the web/ }).textContent).toContain("12 results");
+
+    /* pin the search: the live view shows its hits until "Back to live" */
+    /* the stream handle drops what was already delivered, so replaying from the start is safe */
+    await emit(es, upTo((e) => e.event === "research.source_found" && e.url === URLS.kept));
+    fireEvent.click(within(feed).getByRole("button", { name: /Searched the web/ }));
+    expect(within(feed).getByRole("button", { name: /Searched the web/ }).getAttribute("aria-current")).toBe("true");
+    expect(screen.getByRole("region", { name: "Live view" }).textContent).toContain("12 results · top 5 shown");
+    fireEvent.click(screen.getByRole("button", { name: "Back to live" }));
+    expect(screen.getByRole("region", { name: "Live view" }).textContent).toContain("Captured for the analysis");
+
+    await emit(es, LIVE_EVENTS);
+    expect(within(dock).getAllByText("Research finished")).toHaveLength(2); /* the header and the feed's last row */
+    expect(within(dock).getByText(/^Finished in /)).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Live view" }).textContent).toMatch(/Research finished in [\d.]+ s/);
+    const filters = within(dock).getByRole("group", { name: "Filter research activity" });
+    expect(within(filters).getByRole("button", { name: "Kept, 2" })).toBeTruthy();
+    fireEvent.click(within(filters).getByRole("button", { name: "Skipped, 4" }));
+    const skipped = within(within(dock).getByRole("list", { name: "Research activity" })).getAllByRole("button");
+    expect(skipped.map((b) => b.textContent)).toEqual([
+      expect.stringContaining("Paywalled"),
+      expect.stringContaining("Published after the as-of date"),
+      expect.stringContaining("Duplicate"),
+      expect.stringContaining("Budget reached"),
+    ]);
+
+    fireEvent.click(dockToggle());
+    expect(dockToggle().getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryByRole("region", { name: "Live view" })).toBeNull();
+  });
+
+  it("opens a finished analysis with the dock collapsed, and a citation chip shows its source there", async () => {
+    const { result } = completedRun;
+    setup(result.analysis_id, [result]);
+    await screen.findByRole("region", { name: /^Assessment$/ });
+    expect(dockToggle().getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryByRole("region", { name: "Live view" })).toBeNull();
+
+    const cited = result.sources.find((s) => s.source_id === "src_587c133c2376b2e8")!;
+    const summary = screen.getByRole("region", { name: /^Assessment$/ });
+    fireEvent.click(within(summary).getByRole("button", { name: `Show source: ${cited.publisher}` }));
+
+    expect(dockToggle().getAttribute("aria-expanded")).toBe("true");
+    const view = screen.getByRole("region", { name: "Live view" });
+    expect(within(view).getByRole("link", { name: cited.title }).getAttribute("href")).toBe(cited.url);
+    expect(within(view).getByRole("button", { name: "Back to summary" })).toBeTruthy();
+    const row = within(screen.getByRole("list", { name: "Research activity" })).getByRole("button", { current: true });
+    expect(row.textContent).toContain(cited.title);
+  });
+
+  it("shows honest empty states in both views when the backend sends no market data", async () => {
+    setup(completedRun.result.analysis_id, [completedRun.result]);
+    await screen.findByRole("region", { name: /^Assessment$/ });
+    expect(screen.getByText(NO_QUARTERLY_FIGURES)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Trading view" }));
+    expect(screen.getByText(NO_PRICE_HISTORY)).toBeTruthy();
+  });
+
+  it("switches the side panel with the main window, and the rail opens and closes it", async () => {
+    setup(completedRun.result.analysis_id, [completedRun.result]);
+    await screen.findByRole("region", { name: /^Assessment$/ });
+    expect(screen.getByRole("tab", { name: "Analysis" }).getAttribute("aria-selected")).toBe("true");
+
+    fireEvent.click(screen.getByRole("button", { name: "Trading view" }));
+    expect(screen.getByRole("tab", { name: "Symbol" }).getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByRole("list", { name: "In this analysis" }).textContent).toContain("AAPL");
+    const keyStats = screen.getByText("Key stats").parentElement!;
+    const marketCap = completedRun.result.calculations.find((c) => c.name === "market_cap")!;
+    expect(keyStats.textContent).toContain(`Market cap${marketCap.display}`);
+    expect(keyStats.textContent).not.toContain("EV/EBITDA"); /* unavailable: skipped */
+
+    const rail = screen.getByRole("navigation", { name: "Panels" });
+    const symbolRail = within(rail).getByRole("button", { name: "Symbol and watchlist" });
+    expect(symbolRail.getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(symbolRail);
+    expect(screen.queryByRole("tabpanel")).toBeNull();
+    expect(symbolRail.getAttribute("aria-pressed")).toBe("false");
+    fireEvent.click(within(rail).getByRole("button", { name: "Analysis" }));
+    expect(screen.getByRole("tab", { name: "Analysis" }).getAttribute("aria-selected")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "Company performance" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Symbol" }));
+    expect(screen.getByRole("tab", { name: "Symbol" }).getAttribute("aria-selected")).toBe("true");
+  });
+
+  it("saves the watched symbol in this browser only, with no invented price", async () => {
+    const { result } = completedRun;
+    const { backend } = setup(result.analysis_id, [result]);
+    await screen.findByRole("region", { name: /^Assessment$/ });
+    const watch = screen.getAllByRole("button", { name: "Watch AAPL" })[0];
+    const calls = backend.calls.length;
+    fireEvent.click(watch);
+    expect(screen.getAllByRole("button", { name: "Watch AAPL" })[0].getAttribute("aria-pressed")).toBe("true");
+    expect(JSON.parse(window.localStorage.getItem(WATCHLIST_KEY)!)).toEqual([
+      { symbol: "AAPL", name: "Apple Inc.", last_close: null, change_pct: null, as_of: null },
+    ]);
+    expect(backend.calls.length).toBe(calls); /* nothing is sent anywhere */
+    fireEvent.click(screen.getByRole("tab", { name: "Symbol" }));
+    expect(within(screen.getByRole("list", { name: "Your watchlist" })).getByText("AAPL")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Remove AAPL from watchlist" }));
+    expect(JSON.parse(window.localStorage.getItem(WATCHLIST_KEY)!)).toEqual([]);
+  });
+
+  it("asks for a ticker when the stream reports that the question has none", async () => {
+    const { events, result } = failedRun;
+    const failure = { ...events[events.length - 1] } as AnalysisEvent & { error: Record<string, unknown> };
+    failure.error = { code: "AMBIGUOUS_INSTRUMENT", message: "The question does not name a ticker.", retryable: false, details: { reason: "ticker_required" } };
+    setup(result.analysis_id, [running(result, "resolving_instrument")]);
+    await waitFor(() => expect(FakeEventSource.instances).toHaveLength(1));
+    await emit(FakeEventSource.latest(), [events[0], { ...failure, seq: 2 } as AnalysisEvent]);
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("Include the company's ticker, e.g. $AAPL.");
+    expect(alert.textContent).toContain("The question does not name a ticker.");
+    expect(within(alert).queryByRole("button", { name: /^Analyse / })).toBeNull();
   });
 });

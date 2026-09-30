@@ -1,7 +1,7 @@
 "use client";
 /* Copied from Beautiful UI (https://github.com/slev12397/beautiful-ui) — MIT License,
  * Copyright (c) 2026 Shane Levine. Full notice in LICENSE-THIRD-PARTY at the repo root.
- * Modified: demo content removed. */
+ * Modified: demo content removed; optional `onCite` turns inline citation chips into buttons. */
 
 import { useState, type ReactNode } from "react";
 
@@ -42,8 +42,27 @@ function Monogram({ name, className }: { name: string; className: string }) {
   );
 }
 
-function SourceChip({ source }: { source?: StreamingSource }) {
+const CITE_CLASS = `ml-0 mr-1 inline-flex h-4.5 translate-y-[-1px] items-center gap-1 rounded-[5px]
+  bg-inset pr-[3px] pl-[3px] align-middle font-mono text-[10.5px] text-ink-2 shadow-hairline
+  transition-colors duration-150 hover:bg-hover hover:text-ink`;
+
+function SourceChip({ source, onCite }: { source?: StreamingSource; onCite?: (id: string) => void }) {
   if (!source) return null;
+  if (onCite) {
+    return (
+      <button
+        type="button"
+        onClick={() => onCite(source.id)}
+        title={source.name}
+        aria-label={`Show source: ${source.domain ?? source.name}`}
+        className={CITE_CLASS}
+        style={{ animation: "pop-in 250ms cubic-bezier(0.23,1,0.32,1) both" }}
+      >
+        <Monogram name={source.name} className="size-3 rounded-[3px] text-[8px]" />
+        <span>{source.domain ?? source.name}</span>
+      </button>
+    );
+  }
   return (
     <a
       href={source.href}
@@ -76,6 +95,7 @@ export default function StreamingText({
   labels,
   fill = false,
   onFollowUp,
+  onCite,
 }: {
   /** the text received so far; segments allow inline citations */
   content: string | StreamingSegment[];
@@ -91,6 +111,8 @@ export default function StreamingText({
   fill?: boolean;
   /** fired when a follow-up prompt is chosen */
   onFollowUp?: (text: string, index: number) => void;
+  /** when given, inline citation chips are buttons that call it with the source id */
+  onCite?: (id: string) => void;
 }) {
   const [sourcesOpen, setSourcesOpen] = useState(false);
   const segments: StreamingSegment[] = typeof content === "string" ? [{ text: content }] : content;
@@ -104,7 +126,7 @@ export default function StreamingText({
       <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-ink" aria-busy={streaming}>
         {segments.map((segment, i) =>
           "cite" in segment ? (
-            <SourceChip key={i} source={sources.find((s) => s.id === segment.cite)} />
+            <SourceChip key={i} source={sources.find((s) => s.id === segment.cite)} onCite={onCite} />
           ) : (
             <span key={i}>{segment.text}</span>
           ),

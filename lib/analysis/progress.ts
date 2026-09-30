@@ -38,10 +38,6 @@ export function layaStageLabel(stage: string): string {
 }
 
 const QUERY_KIND_LABELS: Record<string, string> = {
-  edgar_submissions: "SEC EDGAR",
-  edgar_companyfacts: "SEC EDGAR",
-  prices: "Prices",
-  benchmarks: "Benchmarks",
   search: "Web search",
 };
 
@@ -112,7 +108,7 @@ function describe(
     case "instrument.resolved": {
       const instrument = state.instrument;
       return {
-        label: instrument ? `Identified ${instrument.name}` : "Identified the company",
+        label: instrument ? `Identified ${instrument.name || instrument.symbol}` : "Identified the company",
         detail: instrument ? [instrument.symbol, instrument.exchange].filter(Boolean).join(" · ") : undefined,
       };
     }

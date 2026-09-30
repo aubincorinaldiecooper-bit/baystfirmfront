@@ -43,7 +43,7 @@ export function FreshnessSummary({ summary, research }: { summary: Record<string
             ))}
           </div>
         )}
-        <dl className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <dl className="mt-3 grid grid-cols-1 gap-3 @xl:grid-cols-2">
           <Field label="Latest quarter">
             {facts && str(facts.latest_quarter_end)
               ? [str(facts.latest_quarter_end), str(facts.latest_quarter_freshness) && freshnessLabel(String(facts.latest_quarter_freshness)), age(facts.latest_quarter_age_days)]

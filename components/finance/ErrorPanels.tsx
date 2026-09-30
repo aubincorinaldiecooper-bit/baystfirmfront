@@ -6,12 +6,13 @@
 
 import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/atoms/Button";
-import type { ApiError } from "@/lib/api/client";
+import { isTickerRequired, normalizeCandidates, TICKER_PROMPT, type ApiError } from "@/lib/api/client";
 import type { ErrorPayload, InstrumentCandidate } from "@/lib/api/types";
 import CandidatePicker from "./CandidatePicker";
 import { Notice } from "./ui";
 
 function requestErrorTitle(error: ApiError): string {
+  if (isTickerRequired(error)) return `${TICKER_PROMPT}.`;
   switch (error.code) {
     case "NETWORK_ERROR":
       return "The analysis backend can't be reached.";
@@ -62,7 +63,10 @@ export function RequestErrorPanel({
   busy?: boolean;
 }) {
   const messages = validationMessages(error);
-  const reason = typeof error.details?.reason === "string" && error.details.reason !== "upstream_unreachable" ? error.details.reason : null;
+  const reason =
+    typeof error.details?.reason === "string" && error.details.reason !== "upstream_unreachable" && !isTickerRequired(error)
+      ? error.details.reason
+      : null;
   return (
     <Notice
       kind="error"
@@ -96,11 +100,7 @@ export function RequestErrorPanel({
 
 function candidatesOf(error: ErrorPayload): InstrumentCandidate[] | null {
   const raw = error.details?.candidates;
-  if (!Array.isArray(raw)) return null;
-  return raw.filter(
-    (c): c is InstrumentCandidate =>
-      typeof c === "object" && c !== null && typeof c.symbol === "string" && typeof c.name === "string",
-  );
+  return Array.isArray(raw) ? normalizeCandidates(raw) : null;
 }
 
 export function AnalysisErrorPanel({
@@ -122,6 +122,15 @@ export function AnalysisErrorPanel({
   const candidates = error.code === "AMBIGUOUS_INSTRUMENT" ? candidatesOf(error) : null;
   if (candidates && onChoose) {
     return <CandidatePicker message={error.message} candidates={candidates} onChoose={onChoose} busy={busy} />;
+  }
+  if (isTickerRequired(error)) {
+    return (
+      <Notice kind="warn" role="alert" title={`${TICKER_PROMPT}.`}>
+        <p>{error.message}</p>
+        <p className="mt-1">Ask again with the ticker in the question.</p>
+        <ErrorCode code={error.code} />
+      </Notice>
+    );
   }
   const cancelled = status === "cancelled";
   return (

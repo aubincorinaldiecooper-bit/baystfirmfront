@@ -93,7 +93,46 @@ describe("ambiguous instrument", () => {
     await ask("How is the market doing?");
     const picker = await screen.findByRole("group", { name: "No public company could be identified in the request." });
     expect(within(picker).queryAllByRole("button", { name: /^Analyse / })).toHaveLength(0);
-    expect(picker.textContent).toContain("ticker symbol");
+    expect(picker.textContent).toContain("Include the company's ticker, e.g. $AAPL");
+  });
+
+  it("offers symbol-only candidates by their symbol, never an invented name", async () => {
+    const body = {
+      error: {
+        code: "AMBIGUOUS_INSTRUMENT",
+        message: "The question mentions several tickers.",
+        retryable: false,
+        details: { reason: "multiple_tickers", candidates: [{ symbol: "EXHL" }, { symbol: "EXMP", name: "", exchange: null, cik: null }] },
+      },
+    };
+    const backend = setup({ create: [() => jsonResponse(422, body), created] });
+    await ask("Compare $EXHL and $EXMP.");
+    const picker = await screen.findByRole("group", { name: "The question mentions several tickers." });
+    const options = within(picker).getAllByRole("button", { name: /^Analyse / });
+    expect(options.map((b) => b.getAttribute("aria-label"))).toEqual(["Analyse EXHL", "Analyse EXMP"]);
+    expect(picker.textContent).toContain("Choose the ticker to analyse.");
+    expect(picker.textContent).not.toMatch(/Inc\.|Corp|undefined|null/);
+    await act(async () => {
+      fireEvent.click(options[0]);
+    });
+    await waitFor(() => expect(backend.callsTo("POST", "/analyses")).toHaveLength(2));
+    expect(backend.callsTo("POST", "/analyses")[1].body).toMatchObject({ instrument: { symbol: "EXHL" } });
+    expect(backend.callsTo("POST", "/analyses")[1].body).not.toHaveProperty("instrument.exchange");
+  });
+
+  it("asks for a ticker when the question has none", async () => {
+    const body = {
+      error: { code: "AMBIGUOUS_INSTRUMENT", message: "The question does not name a ticker.", retryable: false, details: { reason: "ticker_required" } },
+    };
+    setup({ create: [() => jsonResponse(422, body)] });
+    await ask("How is the company doing?");
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("Include the company's ticker, e.g. $AAPL.");
+    expect(alert.textContent).toContain("The question does not name a ticker.");
+    expect(alert.textContent).not.toContain("ticker_required");
+    expect(within(alert).queryByRole("button", { name: "Try again" })).toBeNull();
+    /* the question goes back into the composer to add the ticker */
+    expect((screen.getByRole("textbox", { name: "Question" }) as HTMLTextAreaElement).value).toBe("How is the company doing?");
   });
 
   it("can be dismissed", async () => {
@@ -132,6 +171,14 @@ describe("profiles from /capabilities", () => {
     const notice = await screen.findByText("No analysis profile is available on this backend right now.");
     expect(notice.closest("[role=status]")?.textContent).toContain("llama-server is not running");
     fireEvent.change(screen.getByRole("textbox", { name: "Question" }), { target: { value: "Assess Apple." } });
+    expect((screen.getByRole("button", { name: "Send" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("blocks sending and says why when web search isn't configured", async () => {
+    setup({ capabilities: { ...clone(capabilitiesFixture), web_search: false } });
+    const notice = await screen.findByText("Web search isn't configured on the server, so analyses can't run.");
+    expect(notice.closest("[role=status]")).toBeTruthy();
+    fireEvent.change(screen.getByRole("textbox", { name: "Question" }), { target: { value: "Assess $EXHL." } });
     expect((screen.getByRole("button", { name: "Send" }) as HTMLButtonElement).disabled).toBe(true);
   });
 

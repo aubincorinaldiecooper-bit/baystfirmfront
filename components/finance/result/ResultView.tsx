@@ -20,7 +20,7 @@ import RequirementChips from "./RequirementChips";
 import SourcesList from "./SourcesList";
 import StructuredSection from "./StructuredSection";
 import ThesisDiff from "./ThesisDiff";
-import { CitedText, sourceIndex, type SourceIndex } from "./sources";
+import { CitedText, sourceIndex, useSourcePick, type SourceIndex } from "./sources";
 
 const STRUCTURED_SECTIONS = [
   ["fundamentals", "Fundamentals"],
@@ -31,6 +31,7 @@ const STRUCTURED_SECTIONS = [
 ] as const;
 
 export function StreamedText({ text, sources, streaming }: { text: string; sources: SourceIndex; streaming: boolean }) {
+  const pick = useSourcePick();
   const known = new Set(sources.keys());
   const segments = citationSegments(text, known);
   const cited = segments.flatMap((s) => ("cite" in s ? [s.cite] : []));
@@ -38,7 +39,7 @@ export function StreamedText({ text, sources, streaming }: { text: string; sourc
     const source = sources.get(id);
     return source ? [{ id, name: source.title, domain: source.publisher ?? undefined, href: source.url }] : [];
   });
-  return <StreamingText fill content={segments} streaming={streaming} sources={streamingSources} />;
+  return <StreamingText fill content={segments} streaming={streaming} sources={streamingSources} onCite={pick ?? undefined} />;
 }
 
 export default function ResultView({
@@ -55,7 +56,7 @@ export default function ResultView({
   const requirements = showRequirements ? requirementLabels(result.requirements) : [];
 
   return (
-    <div>
+    <div className="@container">
       {completed && result.partial && (
         <Notice kind="warn" role="status" title="This assessment is incomplete.">
           The synthesis was cut off or a horizon section is missing. What was produced is shown as recorded.
