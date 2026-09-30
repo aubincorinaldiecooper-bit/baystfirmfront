@@ -383,7 +383,7 @@ export function findFeedItem(items: readonly FeedItem[], key: string): FeedItem 
 /* ── the live view ───────────────────────────────────────── */
 
 export type LiveTarget =
-  | { kind: "idle"; title: string; text: string; key: null }
+  | { kind: "idle"; phase: "planning" | "waiting" | "ended"; title: string; text: string; key: null }
   | { kind: "search"; key: string; query: string; results: SearchResultsView | null; pending: boolean }
   | { kind: "loading"; key: string; fetch: FetchView; pending: boolean }
   | { kind: "source"; key: string; source: LiveSource }
@@ -396,6 +396,7 @@ export function targetOf(item: FeedItem): LiveTarget {
     case "round":
       return {
         kind: "idle",
+        phase: "planning",
         key: null,
         title: `Planning round ${item.round}`,
         text: item.gaps.length > 0 ? `Looking for: ${item.gaps.join(", ")}` : "Deciding what to request first.",
@@ -446,9 +447,9 @@ export function followTarget(state: AnalysisViewState, items: readonly FeedItem[
   }
   if (latest) return targetOf(latest);
   if (isTerminalUiStatus(state.status)) {
-    return { kind: "idle", key: null, title: "No research was recorded", text: "The analysis ended before any source was requested." };
+    return { kind: "idle", phase: "ended", key: null, title: "No research was recorded", text: "The analysis ended before any source was requested." };
   }
-  return { kind: "idle", key: null, title: "Research hasn't started yet", text: "Nothing has been requested from the web yet." };
+  return { kind: "idle", phase: "waiting", key: null, title: "Research hasn't started yet", text: "Nothing has been requested from the web yet." };
 }
 
 /** The live view's subject: the pinned row when there is one, else the run as it happens. */
