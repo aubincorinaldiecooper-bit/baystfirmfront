@@ -94,11 +94,39 @@ export function isAmbiguousInstrument(value: unknown): value is AmbiguousInstrum
 }
 
 export function ambiguityCandidates(error: AmbiguousInstrumentError): InstrumentCandidate[] {
-  return error.details.candidates.filter(
-    (c): c is InstrumentCandidate =>
-      typeof c === "object" && c !== null && typeof c.symbol === "string" && typeof c.name === "string",
-  );
+  return normalizeCandidates(error.details.candidates);
 }
+
+/**
+ * The backend's candidates as given, symbol-only ones included: a missing
+ * name stays empty (the UI shows the symbol), a missing exchange or CIK null.
+ * Entries without a symbol are dropped.
+ */
+export function normalizeCandidates(raw: unknown): InstrumentCandidate[] {
+  if (!Array.isArray(raw)) return [];
+  const candidates: InstrumentCandidate[] = [];
+  for (const item of raw) {
+    if (typeof item !== "object" || item === null) continue;
+    const c = item as Record<string, unknown>;
+    if (typeof c.symbol !== "string" || !c.symbol.trim()) continue;
+    candidates.push({
+      symbol: c.symbol,
+      exchange: typeof c.exchange === "string" && c.exchange ? c.exchange : null,
+      name: typeof c.name === "string" ? c.name.trim() : "",
+      cik: typeof c.cik === "string" && c.cik ? c.cik : null,
+      ...(typeof c.score === "number" ? { score: c.score } : {}),
+    });
+  }
+  return candidates;
+}
+
+/** The backend could not tell the company because the question names no ticker. */
+export function isTickerRequired(error: { code: string; details?: Record<string, unknown> | null } | null | undefined): boolean {
+  return error?.code === "AMBIGUOUS_INSTRUMENT" && error.details?.reason === "ticker_required";
+}
+
+/** The prompt shown when the question needs a ticker. */
+export const TICKER_PROMPT = "Include the company's ticker, e.g. $AAPL";
 
 /* ── error normalisation ─────────────────────────────────── */
 

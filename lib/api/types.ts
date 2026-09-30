@@ -126,13 +126,20 @@ export interface ErrorEnvelope {
   error: ErrorPayload;
 }
 
-/** `details.candidates[*]` of a 422 AMBIGUOUS_INSTRUMENT (instruments/base.py). */
+/**
+ * `details.candidates[*]` of AMBIGUOUS_INSTRUMENT (instruments/base.py). Without
+ * a company directory the backend can offer symbol-only candidates: read them
+ * through `normalizeCandidates`, which leaves `name` empty rather than invent
+ * one (show the symbol instead).
+ */
 export interface InstrumentCandidate {
   symbol: string;
   exchange: string | null;
+  /** May be empty. */
   name: string;
   cik: string | null;
-  score: number;
+  /** Never shown. */
+  score?: number;
 }
 
 /* ── requests (schemas/requests.py) ─────────────────────── */
@@ -632,6 +639,8 @@ export interface Capabilities {
   deployment: string;
   research: boolean;
   execution: ExecutionInfo;
+  /** Optional: whether web search (the only research source) is configured. */
+  web_search?: boolean;
 }
 
 export type ComponentStatus = "ok" | "degraded" | "down" | "disabled";

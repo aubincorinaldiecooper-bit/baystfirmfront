@@ -5,6 +5,8 @@ import {
   ambiguityCandidates,
   errorFromResponse,
   isAmbiguousInstrument,
+  isTickerRequired,
+  normalizeCandidates,
   isApiError,
   parseRetryAfter,
 } from "@/lib/api/client";
@@ -122,6 +124,22 @@ describe("error normalisation", () => {
     expect(error.message).toBe("Which company did you mean?");
     expect(ambiguityCandidates(error)).toEqual(candidates);
     expect(error.details.reason).toBe("multiple_matches");
+  });
+
+  it("keeps symbol-only candidates without inventing a name", () => {
+    expect(
+      normalizeCandidates([{ symbol: "EXHL" }, { symbol: "EXMP", name: " Example Co ", exchange: "", cik: null, score: 0.2 }, { name: "no symbol" }, null, "x"]),
+    ).toEqual([
+      { symbol: "EXHL", exchange: null, name: "", cik: null },
+      { symbol: "EXMP", exchange: null, name: "Example Co", cik: null, score: 0.2 },
+    ]);
+    expect(normalizeCandidates(undefined)).toEqual([]);
+  });
+
+  it("recognizes a question that needs a ticker", () => {
+    expect(isTickerRequired({ code: "AMBIGUOUS_INSTRUMENT", details: { reason: "ticker_required" } })).toBe(true);
+    expect(isTickerRequired({ code: "AMBIGUOUS_INSTRUMENT", details: { reason: "multiple_tickers" } })).toBe(false);
+    expect(isTickerRequired(null)).toBe(false);
   });
 
   it("an AMBIGUOUS_INSTRUMENT without candidates is not treated as a picker", async () => {

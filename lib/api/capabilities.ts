@@ -26,6 +26,8 @@ export interface CapabilitiesView {
   deployment: string;
   research: boolean;
   execution: ExecutionInfo;
+  /** Whether web search is configured; null when the backend does not report it. */
+  webSearch: boolean | null;
   /** Whether any profile can run at all. */
   anyProfileAvailable: boolean;
   /** The profile to preselect: fast when available, else deep, else null. */
@@ -56,10 +58,14 @@ export function toCapabilitiesView(capabilities: Capabilities): CapabilitiesView
     deployment: capabilities.deployment,
     research: capabilities.research,
     execution: capabilities.execution,
+    webSearch: typeof capabilities.web_search === "boolean" ? capabilities.web_search : null,
     anyProfileAvailable: defaultProfile !== null,
     defaultProfile,
   };
 }
+
+/** Shown when the backend reports web search as not configured. */
+export const WEB_SEARCH_OFF_MESSAGE = "Web search isn't configured on the server, so analyses can't run.";
 
 /** Concise, product-facing explanation for a disabled profile (spec section 18). */
 export function profileUnavailableMessage(availability: ProfileAvailability): string | null {

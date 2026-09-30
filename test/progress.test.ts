@@ -25,6 +25,12 @@ describe("progress steps from the completed run", () => {
     expect(new Set(steps.map((s) => s.id)).size).toBe(steps.length);
   });
 
+  it("names the identified company by its symbol when the backend sends no name", () => {
+    const resolved = events.find((e): e is AnalysisEventOf<"instrument.resolved"> => e.event === "instrument.resolved")!;
+    const nameless = applyEvents(initialAnalysisState, upTo(events, (e) => e.event === "instrument.resolved").map((e) => (e === resolved ? { ...resolved, name: "" } : e)));
+    expect(progressSteps(nameless).find((s) => s.event === "instrument.resolved")?.label).toBe(`Identified ${resolved.symbol}`);
+  });
+
   it("uses the backend's own query labels and counts", () => {
     const queries = events.filter((e): e is AnalysisEventOf<"research.query"> => e.event === "research.query");
     for (const query of queries) {

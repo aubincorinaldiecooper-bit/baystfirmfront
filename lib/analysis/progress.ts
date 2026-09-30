@@ -112,7 +112,7 @@ function describe(
     case "instrument.resolved": {
       const instrument = state.instrument;
       return {
-        label: instrument ? `Identified ${instrument.name}` : "Identified the company",
+        label: instrument ? `Identified ${instrument.name || instrument.symbol}` : "Identified the company",
         detail: instrument ? [instrument.symbol, instrument.exchange].filter(Boolean).join(" · ") : undefined,
       };
     }

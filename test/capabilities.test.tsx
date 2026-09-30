@@ -54,6 +54,12 @@ describe("toCapabilitiesView", () => {
     expect(view.voice).toBe(false);
   });
 
+  it("reads web_search when the backend reports it, and leaves it unknown otherwise", () => {
+    expect(toCapabilitiesView(CAPABILITIES).webSearch).toBeNull();
+    expect(toCapabilitiesView({ ...CAPABILITIES, web_search: false }).webSearch).toBe(false);
+    expect(toCapabilitiesView({ ...CAPABILITIES, web_search: true }).webSearch).toBe(true);
+  });
+
   it("never assumes a profile the backend did not report", () => {
     const view = toCapabilitiesView({ ...CAPABILITIES, profiles: { deep: CAPABILITIES.profiles.deep } });
     expect(view.profiles.fast.available).toBe(false);
