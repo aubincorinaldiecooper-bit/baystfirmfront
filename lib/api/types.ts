@@ -564,6 +564,56 @@ export interface AnalysisResult {
   /** PR #4, optional and unstable: product-level requirement labels. Read
    * through `requirementLabels()`, never rendered raw. */
   requirements?: unknown;
+  /** Optional price series and quarterly fundamentals. The current backend
+   * (web search only) does not send it; the market views render only what is present. */
+  market?: MarketView | null;
+}
+
+/* ── market data (optional; not sent by the current backend) ─ */
+
+export type MarketRole = "company" | "broad_market" | "sector";
+
+/** One daily row, oldest → newest: date (YYYY-MM-DD), open, high, low, close, volume. */
+export type PricePoint = [
+  date: string,
+  open: number | null,
+  high: number | null,
+  low: number | null,
+  close: number,
+  volume: number | null,
+];
+
+export interface MarketSeries {
+  role: MarketRole;
+  /** Display symbol, e.g. the ticker or the benchmark's symbol. */
+  symbol: string;
+  name: string;
+  source_id: string;
+  currency: string;
+  interval: "1d";
+  points: PricePoint[];
+}
+
+export interface FundamentalQuarter {
+  /** e.g. "Q3 2026". */
+  label: string;
+  /** Period end, YYYY-MM-DD. */
+  end: string;
+  revenue: number | null;
+  gross_margin_pct: number | null;
+}
+
+export interface MarketFundamentals {
+  currency: string;
+  /** Oldest → newest, at most 8. */
+  quarters: FundamentalQuarter[];
+  source_ids: string[];
+}
+
+export interface MarketView {
+  price_display?: boolean;
+  series: MarketSeries[];
+  fundamentals: MarketFundamentals | null;
 }
 
 /* ── capabilities / health (schemas/capabilities.py) ────── */
@@ -615,9 +665,14 @@ export const EVENT_NAMES = [
   "instrument.resolved",
   "research.started",
   "research.query",
+  "research.search_results",
+  "research.fetching",
+  "research.fetch_skipped",
   "research.source_found",
   "research.source_rejected",
   "research.completed",
+  "market.series",
+  "market.fundamentals",
   "normalization.completed",
   "laya.started",
   "laya.decision",
@@ -705,9 +760,74 @@ export interface ResearchQueryData {
   round: number;
 }
 
+/** What a `research.fetching` request is for: "web" (a page from a search result). Other values are tolerated. */
+export type FetchKind = "web" | (string & {});
+
+/**
+ * Emitted immediately before a request goes out. Followed, for the same
+ * `url`, by one `research.source_found`, `research.source_rejected` or
+ * `research.fetch_skipped`. The reverse does not hold: a duplicate URL can be
+ * skipped, and a search hit rejected by its date, without any request.
+ */
+export interface ResearchFetchingData {
+  url: string;
+  /** Registrable host of the page. */
+  domain: string;
+  kind: FetchKind;
+  /** Short human label when known. */
+  label: string | null;
+  intent: string;
+  round: number;
+}
+
+export interface ResearchFetchSkippedData {
+  url: string;
+  domain: string;
+  /** "duplicate" (already covered) or "budget" (the run's source budget was spent). */
+  reason: "duplicate" | "budget" | (string & {});
+  intent: string;
+  round: number;
+}
+
+export interface SearchHit {
+  url: string;
+  title: string;
+  domain: string;
+  published_at: string | null;
+}
+
+/** Right after a web search returns. Search-engine snippets are never sent. */
+export interface ResearchSearchResultsData {
+  query: string;
+  intent: string;
+  round: number;
+  /** Hits the search engine returned (0 when the search failed). */
+  total: number;
+  /** The top hits (at most 8), in engine order; [] when the search failed. */
+  hits: SearchHit[];
+  /** The search itself failed. Optional: absent from the first contract draft. */
+  failed?: boolean;
+}
+
+/** A small table for structured sources; cells are already formatted server-side (currently always null). */
+export interface SourcePreview {
+  columns: string[];
+  rows: string[][];
+}
+
 export interface ResearchSourceFoundData extends SourcePublicView {
   intent: string;
   round: number;
+  /* Live-panel contract v1: optional so events from older backends still parse. */
+  domain?: string;
+  /** Wall time of this item's own request(s). */
+  fetch_ms?: number | null;
+  /** Characters of readable text extracted from the page. */
+  text_chars?: number | null;
+  redistribution?: Redistribution;
+  /** Only when `redistribution` is "allowed"; otherwise null. */
+  excerpt?: string | null;
+  preview?: SourcePreview | null;
 }
 
 export interface ResearchSourceRejectedData {
@@ -717,7 +837,16 @@ export interface ResearchSourceRejectedData {
   reason: string;
   intent: string;
   round: number;
+  /* Live-panel contract v1, optional. */
+  domain?: string;
+  fetch_ms?: number | null;
 }
+
+/** Optional; not sent by the current backend (web search only). */
+export type MarketSeriesData = MarketSeries;
+
+/** Optional; not sent by the current backend (web search only). */
+export type MarketFundamentalsData = MarketFundamentals;
 
 /** `ResearchStats.model_dump()`. */
 export type ResearchCompletedData = ResearchStats;
@@ -821,9 +950,14 @@ export interface EventDataMap {
   "instrument.resolved": InstrumentResolvedData;
   "research.started": ResearchStartedData;
   "research.query": ResearchQueryData;
+  "research.search_results": ResearchSearchResultsData;
+  "research.fetching": ResearchFetchingData;
+  "research.fetch_skipped": ResearchFetchSkippedData;
   "research.source_found": ResearchSourceFoundData;
   "research.source_rejected": ResearchSourceRejectedData;
   "research.completed": ResearchCompletedData;
+  "market.series": MarketSeriesData;
+  "market.fundamentals": MarketFundamentalsData;
   "normalization.completed": NormalizationCompletedData;
   "laya.started": LayaStartedData;
   "laya.decision": LayaDecisionData;

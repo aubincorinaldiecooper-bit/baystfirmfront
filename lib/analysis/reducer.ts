@@ -23,10 +23,17 @@ import type {
   InstrumentResolvedData,
   LayaDecisionEventView,
   LayaStage,
+  MarketFundamentals,
+  MarketRole,
+  MarketSeries,
+  MarketView,
   NormalizationCompletedData,
   Profile,
+  Redistribution,
   ResearchStats,
   ResolvedHorizon,
+  SearchHit,
+  SourcePreview,
   SourcePublicView,
 } from "@/lib/api/types";
 import { isTerminalStatus } from "@/lib/api/types";
@@ -86,29 +93,125 @@ export interface ResearchProgress {
   requirements: string[];
   /** `research.completed` payload (`ResearchStats`). */
   stats: ResearchStats | null;
+  /** Every `research.started`, in seq order (one per round). */
+  roundLog: ResearchRoundView[];
+  /** Every `research.fetching`, in seq order, with its recorded outcome once it arrives. */
+  fetches: FetchView[];
+  /** Every `research.fetch_skipped`, in seq order. */
+  skipped: SkippedFetchView[];
+  /** Every `research.search_results`, in seq order. */
+  searches: SearchResultsView[];
+  /** Event time of the first `research.started`. */
+  startedTs: string | null;
+  /** Event time of `research.completed`. */
+  completedTs: string | null;
+  /** Event time of the latest research event. */
+  lastTs: string | null;
 }
 
 export interface ResearchQueryView {
   seq: number;
+  ts: string;
   intent: string;
   kind: string;
+  /** The search text; null for a structured retrieval. */
+  query: string | null;
   label: string;
   round: number;
 }
 
 export interface RejectedSourceView {
   seq: number;
+  ts: string;
   url: string;
   title: string;
   /** A fixed backend keyword, never upstream text. */
   reason: string;
+  intent: string;
   round: number;
+  domain: string | null;
+  fetchMs: number | null;
+  /** The `research.fetching` this settled, or null when no request preceded it. */
+  fetchSeq: number | null;
+}
+
+export interface ResearchRoundView {
+  seq: number;
+  ts: string;
+  round: number;
+  intents: string[];
+  evidenceGaps: string[];
+}
+
+export type FetchState = "fetching" | "kept" | "rejected" | "skipped";
+
+/** One request the backend announced with `research.fetching`, and what came of it. */
+export interface FetchView {
+  seq: number;
+  ts: string;
+  url: string;
+  domain: string;
+  kind: string;
+  label: string | null;
+  intent: string;
+  round: number;
+  state: FetchState;
+  /** Seq and time of the event that settled it (found, rejected or skipped). */
+  settledSeq: number | null;
+  settledTs: string | null;
+  /** The kept source, when `state` is "kept". */
+  sourceId: string | null;
+  /** The backend keyword, when `state` is "rejected" or "skipped". */
+  reason: string | null;
+}
+
+export interface SkippedFetchView {
+  seq: number;
+  ts: string;
+  url: string;
+  domain: string;
+  /** "duplicate" or "budget" (other keywords are tolerated). */
+  reason: string;
+  intent: string;
+  round: number;
+  fetchSeq: number | null;
+}
+
+export interface SearchResultsView {
+  seq: number;
+  ts: string;
+  query: string;
+  intent: string;
+  round: number;
+  total: number;
+  hits: SearchHit[];
+  failed: boolean;
+  /** The `research.query` this answered, when one was recorded. */
+  querySeq: number | null;
 }
 
 export interface SourceView extends SourcePublicView {
   intent: string;
   round: number;
   seq: number;
+  ts: string;
+  /* live-panel contract v1; null when the backend did not send them */
+  domain: string | null;
+  fetchMs: number | null;
+  textChars: number | null;
+  redistribution: Redistribution | null;
+  /** Present only when the terms allow redistribution. */
+  excerpt: string | null;
+  preview: SourcePreview | null;
+  /** The `research.fetching` this settled, or null when no request preceded it. */
+  fetchSeq: number | null;
+}
+
+/** Optional price series and quarterly fundamentals; empty unless the backend sends them. */
+export interface MarketState {
+  /** At most one per role, company first. */
+  series: MarketSeries[];
+  fundamentals: MarketFundamentals | null;
 }
 
 export interface LayaStageProgress {
@@ -155,11 +258,14 @@ export interface AnalysisViewState {
   asOf: string | null;
   execution: ExecutionInfo | null;
   instrument: InstrumentResolvedData | null;
+  /** Event time of `analysis.started`. */
+  startedTs: string | null;
   /** Seq of the last applied event; events at or below it are ignored. */
   lastSeq: number;
   eventCount: number;
   research: ResearchProgress;
   sources: SourceView[];
+  market: MarketState;
   normalization: NormalizationCompletedData | null;
   /** Keyed by Laya stage, in order of first appearance. */
   laya: Record<string, LayaStageProgress>;
@@ -235,7 +341,16 @@ export const initialResearch: ResearchProgress = {
   rejected: [],
   requirements: [],
   stats: null,
+  roundLog: [],
+  fetches: [],
+  skipped: [],
+  searches: [],
+  startedTs: null,
+  completedTs: null,
+  lastTs: null,
 };
+
+export const initialMarket: MarketState = { series: [], fundamentals: null };
 
 export const initialSpark: SparkProgress = {
   phase: "idle",
@@ -262,10 +377,12 @@ export const initialAnalysisState: AnalysisViewState = {
   asOf: null,
   execution: null,
   instrument: null,
+  startedTs: null,
   lastSeq: 0,
   eventCount: 0,
   research: initialResearch,
   sources: [],
+  market: initialMarket,
   normalization: null,
   laya: {},
   layaStageOrder: [],
@@ -319,6 +436,7 @@ function reduceEvent(state: AnalysisViewState, event: AnalysisEvent): AnalysisVi
         resolvedHorizon: event.resolved_horizon,
         asOf: event.as_of,
         execution: event.execution ?? null,
+        startedTs: event.ts,
       };
     case "instrument.resolved":
       return { ...base, instrument: pick(event) };
@@ -335,6 +453,12 @@ function reduceEvent(state: AnalysisViewState, event: AnalysisEvent): AnalysisVi
           evidenceGaps: event.evidence_gaps,
           currentQuery: null,
           requirements: mergeLabels(base.research.requirements, requirementLabels(event.requirements)),
+          roundLog: [
+            ...base.research.roundLog,
+            { seq: event.seq, ts: event.ts, round: event.round, intents: event.intents ?? [], evidenceGaps: event.evidence_gaps ?? [] },
+          ],
+          startedTs: base.research.startedTs ?? event.ts,
+          lastTs: event.ts,
         },
       };
     case "research.query":
@@ -349,44 +473,187 @@ function reduceEvent(state: AnalysisViewState, event: AnalysisEvent): AnalysisVi
           currentQuery: { intent: event.intent, kind: event.kind, label: event.label, round: event.round },
           queries: [
             ...base.research.queries,
-            { seq: event.seq, intent: event.intent, kind: event.kind, label: event.label, round: event.round },
+            {
+              seq: event.seq,
+              ts: event.ts,
+              intent: event.intent,
+              kind: event.kind,
+              query: event.query ?? null,
+              label: event.label,
+              round: event.round,
+            },
           ],
+          lastTs: event.ts,
         },
       };
+    case "research.search_results": {
+      const querySeq = matchQuery(base.research, event);
+      const search: SearchResultsView = {
+        seq: event.seq,
+        ts: event.ts,
+        query: event.query,
+        intent: event.intent,
+        round: event.round,
+        total: event.total ?? 0,
+        hits: Array.isArray(event.hits) ? event.hits.map(pickHit) : [],
+        failed: event.failed === true,
+        querySeq,
+      };
+      return {
+        ...base,
+        research: {
+          ...base.research,
+          rounds: Math.max(base.research.rounds, event.round),
+          searches: [...base.research.searches, search],
+          lastTs: event.ts,
+        },
+      };
+    }
+    case "research.fetching": {
+      const fetch: FetchView = {
+        seq: event.seq,
+        ts: event.ts,
+        url: event.url,
+        domain: event.domain,
+        kind: event.kind,
+        label: event.label ?? null,
+        intent: event.intent,
+        round: event.round,
+        state: "fetching",
+        settledSeq: null,
+        settledTs: null,
+        sourceId: null,
+        reason: null,
+      };
+      return {
+        ...base,
+        research: {
+          ...base.research,
+          rounds: Math.max(base.research.rounds, event.round),
+          fetches: [...base.research.fetches, fetch],
+          lastTs: event.ts,
+        },
+      };
+    }
+    case "research.fetch_skipped": {
+      /* a URL duplicate is skipped before any request, so a pending fetch is optional */
+      const settled = settleFetch(base.research.fetches, event.url, event, { state: "skipped", reason: event.reason });
+      const skipped: SkippedFetchView = {
+        seq: event.seq,
+        ts: event.ts,
+        url: event.url,
+        domain: event.domain,
+        reason: event.reason,
+        intent: event.intent,
+        round: event.round,
+        fetchSeq: settled.fetchSeq,
+      };
+      return {
+        ...base,
+        research: {
+          ...base.research,
+          rounds: Math.max(base.research.rounds, event.round),
+          fetches: settled.fetches,
+          skipped: [...base.research.skipped, skipped],
+          lastTs: event.ts,
+        },
+      };
+    }
     case "research.source_found": {
+      const settled = settleFetch(base.research.fetches, event.url, event, { state: "kept", sourceId: event.source_id });
       if (base.sources.some((s) => s.source_id === event.source_id)) {
-        return { ...base, research: { ...base.research, rounds: Math.max(base.research.rounds, event.round) } };
+        return {
+          ...base,
+          research: {
+            ...base.research,
+            rounds: Math.max(base.research.rounds, event.round),
+            fetches: settled.fetches,
+            lastTs: event.ts,
+          },
+        };
       }
-      const source: SourceView = { ...pickSource(event), intent: event.intent, round: event.round, seq: event.seq };
+      const source: SourceView = {
+        ...pickSource(event),
+        intent: event.intent,
+        round: event.round,
+        seq: event.seq,
+        ts: event.ts,
+        domain: event.domain ?? null,
+        fetchMs: numberOrNull(event.fetch_ms),
+        textChars: numberOrNull(event.text_chars),
+        redistribution: event.redistribution ?? null,
+        /* the contract sends an excerpt only when redistribution is allowed; enforce it anyway */
+        excerpt: event.redistribution === "allowed" && typeof event.excerpt === "string" && event.excerpt ? event.excerpt : null,
+        preview: pickPreview(event.preview),
+        fetchSeq: settled.fetchSeq,
+      };
       return {
         ...base,
         research: {
           ...base.research,
           rounds: Math.max(base.research.rounds, event.round),
           sourcesFound: base.research.sourcesFound + 1,
+          fetches: settled.fetches,
+          lastTs: event.ts,
         },
         sources: [...base.sources, source],
       };
     }
-    case "research.source_rejected":
+    case "research.source_rejected": {
+      /* a hit rejected by its date is decided without a request, so a pending fetch is optional */
+      const settled = settleFetch(base.research.fetches, event.url, event, { state: "rejected", reason: event.reason });
       return {
         ...base,
         research: {
           ...base.research,
           rounds: Math.max(base.research.rounds, event.round),
           sourcesRejected: base.research.sourcesRejected + 1,
+          fetches: settled.fetches,
           rejected: [
             ...base.research.rejected,
-            { seq: event.seq, url: event.url, title: event.title, reason: event.reason, round: event.round },
+            {
+              seq: event.seq,
+              ts: event.ts,
+              url: event.url,
+              title: event.title,
+              reason: event.reason,
+              intent: event.intent,
+              round: event.round,
+              domain: event.domain ?? null,
+              fetchMs: numberOrNull(event.fetch_ms),
+              fetchSeq: settled.fetchSeq,
+            },
           ],
+          lastTs: event.ts,
         },
       };
+    }
     case "research.completed":
       return {
         ...base,
         status: "normalizing",
-        research: { ...base.research, started: true, completed: true, currentQuery: null, stats: pickStats(event) },
+        research: {
+          ...base.research,
+          started: true,
+          completed: true,
+          currentQuery: null,
+          stats: pickStats(event),
+          completedTs: event.ts,
+          lastTs: event.ts,
+        },
       };
+    case "market.series": {
+      const series = pickSeries(event);
+      return {
+        ...base,
+        market: {
+          ...base.market,
+          series: sortSeries([...base.market.series.filter((s) => s.role !== series.role), series]),
+        },
+      };
+    }
+    case "market.fundamentals":
+      return { ...base, market: { ...base.market, fundamentals: pickFundamentals(event) } };
     case "normalization.completed":
       return { ...base, status: "normalizing", normalization: pickNormalization(event) };
     case "laya.started": {
@@ -627,7 +894,69 @@ export function applyResult(state: AnalysisViewState, result: AnalysisResult): A
     partial: terminal ? result.partial || state.partial : state.partial,
     totalRequestMs: result.telemetry.total_request_ms ?? state.totalRequestMs,
     spark: settleSpark(state.spark, result, terminal),
+    market: mergeMarket(state.market, result.market),
   };
+}
+
+/** The result's market block on top of what the stream delivered; a series from the result wins per role. */
+function mergeMarket(market: MarketState, view: MarketView | null | undefined): MarketState {
+  if (!view || typeof view !== "object") return market;
+  const byRole = new Map<MarketRole, MarketSeries>(market.series.map((s) => [s.role, s]));
+  for (const series of Array.isArray(view.series) ? view.series : []) byRole.set(series.role, series);
+  return {
+    series: sortSeries([...byRole.values()]),
+    fundamentals: view.fundamentals ?? market.fundamentals,
+  };
+}
+
+const ROLE_ORDER: Record<string, number> = { company: 0, broad_market: 1, sector: 2 };
+
+function sortSeries(series: MarketSeries[]): MarketSeries[] {
+  return [...series].sort((a, b) => (ROLE_ORDER[a.role] ?? 9) - (ROLE_ORDER[b.role] ?? 9));
+}
+
+/** Strip a fragment and trailing slashes, so `…/page/` and `…/page` settle the same request. */
+function normalizeUrl(url: string): string {
+  return url.replace(/#.*$/, "").replace(/\/+$/, "");
+}
+
+/**
+ * Settle the most recent pending `research.fetching` for `url`, if there is
+ * one. Nothing is assumed when there is none: some outcomes (a URL duplicate,
+ * a hit rejected by its date) are decided without a request.
+ */
+function settleFetch(
+  fetches: FetchView[],
+  url: string,
+  event: { seq: number; ts: string },
+  outcome: { state: Exclude<FetchState, "fetching">; sourceId?: string; reason?: string },
+): { fetches: FetchView[]; fetchSeq: number | null } {
+  const target = normalizeUrl(url);
+  for (let i = fetches.length - 1; i >= 0; i -= 1) {
+    const fetch = fetches[i];
+    if (fetch.state !== "fetching" || normalizeUrl(fetch.url) !== target) continue;
+    const next = fetches.slice();
+    next[i] = {
+      ...fetch,
+      state: outcome.state,
+      settledSeq: event.seq,
+      settledTs: event.ts,
+      sourceId: outcome.sourceId ?? null,
+      reason: outcome.reason ?? null,
+    };
+    return { fetches: next, fetchSeq: fetch.seq };
+  }
+  return { fetches, fetchSeq: null };
+}
+
+/** The `research.query` a search answered: same text, round and intent, not yet answered. */
+function matchQuery(research: ResearchProgress, event: { query: string; round: number; intent: string }): number | null {
+  const answered = new Set(research.searches.map((s) => s.querySeq));
+  for (let i = research.queries.length - 1; i >= 0; i -= 1) {
+    const q = research.queries[i];
+    if (q.query === event.query && q.round === event.round && q.intent === event.intent && !answered.has(q.seq)) return q.seq;
+  }
+  return null;
 }
 
 /**
@@ -704,6 +1033,42 @@ function pickSource(event: AnalysisEventOf<"research.source_found">): SourcePubl
     fiscal_period: event.fiscal_period ?? null,
     freshness: event.freshness,
     is_primary: event.is_primary,
+  };
+}
+
+function numberOrNull(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function pickHit(hit: SearchHit): SearchHit {
+  return { url: hit.url, title: hit.title, domain: hit.domain, published_at: hit.published_at ?? null };
+}
+
+function pickPreview(preview: SourcePreview | null | undefined): SourcePreview | null {
+  if (!preview || !Array.isArray(preview.columns) || !Array.isArray(preview.rows)) return null;
+  return {
+    columns: preview.columns.map(String),
+    rows: preview.rows.filter(Array.isArray).map((row) => row.map((cell) => (cell === null || cell === undefined ? "" : String(cell)))),
+  };
+}
+
+function pickSeries(event: AnalysisEventOf<"market.series">): MarketSeries {
+  return {
+    role: event.role,
+    symbol: event.symbol,
+    name: event.name,
+    source_id: event.source_id,
+    currency: event.currency,
+    interval: event.interval,
+    points: Array.isArray(event.points) ? event.points : [],
+  };
+}
+
+function pickFundamentals(event: AnalysisEventOf<"market.fundamentals">): MarketFundamentals {
+  return {
+    currency: event.currency,
+    quarters: Array.isArray(event.quarters) ? event.quarters : [],
+    source_ids: Array.isArray(event.source_ids) ? event.source_ids : [],
   };
 }
 
