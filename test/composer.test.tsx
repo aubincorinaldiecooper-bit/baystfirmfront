@@ -6,6 +6,7 @@
  */
 import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { DID_YOU_MEAN } from "@/components/finance/CandidatePicker";
 import NewAnalysis from "@/components/finance/NewAnalysis";
 import type { Capabilities } from "@/lib/api/types";
 import { ambiguous, capabilitiesFixture, clone, completedRun, deepUnavailable, jsonResponse } from "./fixtures/backend";
@@ -58,12 +59,15 @@ describe("ambiguous instrument", () => {
     const backend = setup({ create: [() => jsonResponse(422, ambiguous.body), created] });
     await ask("Compare Apple and Microsoft.");
 
-    const picker = await screen.findByRole("group", { name: "Which company did you mean?" });
+    /* named candidates: "Did you mean…" once, not the backend's same question again */
+    const picker = await screen.findByRole("group", { name: DID_YOU_MEAN });
+    expect(picker.textContent).not.toContain("Which company did you mean?");
     const options = within(picker).getAllByRole("button", { name: /^Analyse / });
     expect(options.map((b) => b.getAttribute("aria-label"))).toEqual([
       "Analyse Apple Inc. (AAPL, NASDAQ)",
       "Analyse MICROSOFT CORP (MSFT, NASDAQ)",
     ]);
+    expect(options[0].textContent).toContain("Apple Inc. \u00b7 AAPL");
     expect(picker.textContent).not.toContain("score");
     /* the question stays in the composer */
     expect((screen.getByRole("textbox", { name: "Question" }) as HTMLTextAreaElement).value).toBe("Compare Apple and Microsoft.");
@@ -120,16 +124,23 @@ describe("ambiguous instrument", () => {
     expect(backend.callsTo("POST", "/analyses")[1].body).not.toHaveProperty("instrument.exchange");
   });
 
-  it("asks for a ticker when the question has none", async () => {
+  it("asks for a ticker when the question has none, once", async () => {
     const body = {
-      error: { code: "AMBIGUOUS_INSTRUMENT", message: "The question does not name a ticker.", retryable: false, details: { reason: "ticker_required" } },
+      error: {
+        code: "AMBIGUOUS_INSTRUMENT",
+        message: "Include the company's stock ticker in your question, for example $AAPL.",
+        retryable: false,
+        details: { reason: "ticker_required", candidates: [] },
+      },
     };
     setup({ create: [() => jsonResponse(422, body)] });
     await ask("How is the company doing?");
     const alert = await screen.findByRole("alert");
     expect(alert.textContent).toContain("Include the company's ticker, e.g. $AAPL.");
-    expect(alert.textContent).toContain("The question does not name a ticker.");
+    /* the backend's message asks for the same thing: shown once, not as title and detail */
+    expect(alert.textContent?.match(/Include the company's/g)).toHaveLength(1);
     expect(alert.textContent).not.toContain("ticker_required");
+    expect(screen.queryByRole("group", { name: DID_YOU_MEAN })).toBeNull();
     expect(within(alert).queryByRole("button", { name: "Try again" })).toBeNull();
     /* the question goes back into the composer to add the ticker */
     expect((screen.getByRole("textbox", { name: "Question" }) as HTMLTextAreaElement).value).toBe("How is the company doing?");
@@ -139,7 +150,7 @@ describe("ambiguous instrument", () => {
     setup({ create: [() => jsonResponse(422, ambiguous.body)] });
     await ask("Compare Apple and Microsoft.");
     fireEvent.click(await screen.findByRole("button", { name: "Dismiss" }));
-    expect(screen.queryByRole("group", { name: "Which company did you mean?" })).toBeNull();
+    expect(screen.queryByRole("group", { name: DID_YOU_MEAN })).toBeNull();
   });
 });
 

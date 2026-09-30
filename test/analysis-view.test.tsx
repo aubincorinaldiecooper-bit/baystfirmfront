@@ -9,6 +9,7 @@
 import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import AnalysisView from "@/components/finance/AnalysisView";
+import { DID_YOU_MEAN } from "@/components/finance/CandidatePicker";
 import type { AnalysisEvent, AnalysisEventOf, AnalysisResult } from "@/lib/api/types";
 import { MILESTONE_EVENTS } from "@/lib/analysis/reducer";
 import { cancelledRun, capabilitiesFixture, clone, completedRun, failedRun, jsonResponse, notFound } from "./fixtures/backend";
@@ -318,6 +319,36 @@ describe("structured failure", () => {
     await waitFor(() => expect(backend.callsTo("POST", "/analyses")).toHaveLength(1));
     expect(backend.callsTo("POST", "/analyses")[0].body).toMatchObject({ instrument: { symbol: "AAPL", exchange: "NASDAQ" } });
   });
+
+  it("asks \"Did you mean\u2026\" with one button per company a name search found", async () => {
+    const ambiguousFailure = clone(events);
+    const last = ambiguousFailure[ambiguousFailure.length - 1] as AnalysisEvent & { error: Record<string, unknown> };
+    last.error = {
+      code: "AMBIGUOUS_INSTRUMENT",
+      message: "Which company did you mean?",
+      retryable: false,
+      details: {
+        reason: "multiple_companies",
+        candidates: [
+          { symbol: "AAPL", exchange: null, name: "Apple Inc.", cik: null, score: 3 },
+          { symbol: "APLE", exchange: null, name: "Apple Hospitality REIT", cik: null, score: 3 },
+        ],
+      },
+    };
+    const { backend } = setup(id, [running(result)], { "POST /analyses": () => jsonResponse(202, completedRun.created) });
+    await waitFor(() => expect(FakeEventSource.instances).toHaveLength(1));
+    await emit(FakeEventSource.latest(), ambiguousFailure);
+    const picker = await screen.findByRole("group", { name: DID_YOU_MEAN });
+    const options = within(picker).getAllByRole("button", { name: /^Analyse / });
+    expect(options.map((b) => b.textContent)).toEqual(["Apple Inc. \u00b7 AAPL", "Apple Hospitality REIT \u00b7 APLE"]);
+    /* the question is asked once */
+    expect(picker.textContent).not.toContain("Which company did you mean?");
+    await act(async () => {
+      fireEvent.click(options[0]);
+    });
+    await waitFor(() => expect(backend.callsTo("POST", "/analyses")).toHaveLength(1));
+    expect(backend.callsTo("POST", "/analyses")[0].body).toMatchObject({ instrument: { symbol: "AAPL" } });
+  });
 });
 
 describe("opening an analysis", () => {
@@ -477,16 +508,21 @@ describe("the analysis workspace", () => {
     expect(JSON.parse(window.localStorage.getItem(WATCHLIST_KEY)!)).toEqual([]);
   });
 
-  it("asks for a ticker when the stream reports that the question has none", async () => {
+  it("asks for a ticker when the stream reports that the question has none, once", async () => {
     const { events, result } = failedRun;
     const failure = { ...events[events.length - 1] } as AnalysisEvent & { error: Record<string, unknown> };
-    failure.error = { code: "AMBIGUOUS_INSTRUMENT", message: "The question does not name a ticker.", retryable: false, details: { reason: "ticker_required" } };
+    failure.error = {
+      code: "AMBIGUOUS_INSTRUMENT",
+      message: "Include the company's stock ticker in your question, for example $AAPL.",
+      retryable: false,
+      details: { reason: "ticker_required", candidates: [] },
+    };
     setup(result.analysis_id, [running(result, "resolving_instrument")]);
     await waitFor(() => expect(FakeEventSource.instances).toHaveLength(1));
     await emit(FakeEventSource.latest(), [events[0], { ...failure, seq: 2 } as AnalysisEvent]);
     const alert = await screen.findByRole("alert");
     expect(alert.textContent).toContain("Include the company's ticker, e.g. $AAPL.");
-    expect(alert.textContent).toContain("The question does not name a ticker.");
+    expect(alert.textContent?.match(/Include the company's/g)).toHaveLength(1);
     expect(within(alert).queryByRole("button", { name: /^Analyse / })).toBeNull();
   });
 });
