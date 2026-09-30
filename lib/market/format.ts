@@ -32,6 +32,12 @@ export function formatMonthYear(date: string | null | undefined): string {
   return p ? `${MONTHS[p.m - 1]} ’${String(p.y).slice(2)}` : "";
 }
 
+/** "Sep 2026" */
+export function formatMonth(date: string | null | undefined): string {
+  const p = parts(date);
+  return p ? `${MONTHS[p.m - 1]} ${p.y}` : "";
+}
+
 export function formatYear(date: string | null | undefined): string {
   const p = parts(date);
   return p ? String(p.y) : "";
