@@ -38,10 +38,6 @@ export function layaStageLabel(stage: string): string {
 }
 
 const QUERY_KIND_LABELS: Record<string, string> = {
-  edgar_submissions: "SEC EDGAR",
-  edgar_companyfacts: "SEC EDGAR",
-  prices: "Prices",
-  benchmarks: "Benchmarks",
   search: "Web search",
 };
 

@@ -762,9 +762,9 @@ export interface ResearchStartedData {
 export interface ResearchQueryData {
   intent: string;
   kind: string;
-  /** The search text; `null` for structured retrievals (EDGAR, prices, benchmarks). */
+  /** The search text. */
   query: string | null;
-  /** Product-level description, e.g. "latest EDGAR filings for <company>". */
+  /** Product-level description, e.g. "recent news for <company>". */
   label: string;
   round: number;
 }
