@@ -65,7 +65,7 @@ describe("without price series or quarterly figures (web search only)", () => {
   it("says so in the Company performance area, with no price, tiles or charts", () => {
     render(<Harness state={webOnly} />);
     expect(screen.getByText(NO_QUARTERLY_FIGURES)).toBeTruthy();
-    expect(NO_QUARTERLY_FIGURES).toBe("No quarterly figures — these would need a data source; this analysis uses web search only.");
+    expect(NO_QUARTERLY_FIGURES).toBe("No quarterly figures — web search didn't return a page with this company's quarterly results.");
     expect(screen.queryByRole("img")).toBeNull();
     expect(screen.queryByRole("list", { name: "Performance" })).toBeNull();
     expect(screen.queryByText(/Last close/)).toBeNull();
@@ -77,7 +77,7 @@ describe("without price series or quarterly figures (web search only)", () => {
   it("says so in the Trading view", () => {
     render(<Harness state={webOnly} initialMode="trading" />);
     expect(screen.getByText(NO_PRICE_HISTORY)).toBeTruthy();
-    expect(NO_PRICE_HISTORY).toBe("No price history — web search results don't include a daily price series.");
+    expect(NO_PRICE_HISTORY).toBe("No price history — web search didn't return a page with this company's daily prices.");
     expect(screen.queryByText(/^O /)).toBeNull();
   });
 

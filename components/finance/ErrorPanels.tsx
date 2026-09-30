@@ -81,7 +81,8 @@ export function RequestErrorPanel({
         ) : undefined
       }
     >
-      <p>{error.message}</p>
+      {/* the title already asks for the ticker: the backend's message says the same */}
+      {!isTickerRequired(error) && <p>{error.message}</p>}
       {reason && <p className="mt-0.5">{reason}</p>}
       {messages.length > 0 && (
         <ul className="mt-1 list-disc pl-4">
@@ -119,18 +120,17 @@ export function AnalysisErrorPanel({
   onChoose?: (candidate: InstrumentCandidate) => void;
   busy?: boolean;
 }) {
-  const candidates = error.code === "AMBIGUOUS_INSTRUMENT" ? candidatesOf(error) : null;
-  if (candidates && onChoose) {
-    return <CandidatePicker message={error.message} candidates={candidates} onChoose={onChoose} busy={busy} />;
-  }
   if (isTickerRequired(error)) {
+    /* one sentence: the backend's message asks for the ticker too, so it is not repeated */
     return (
       <Notice kind="warn" role="alert" title={`${TICKER_PROMPT}.`}>
-        <p>{error.message}</p>
-        <p className="mt-1">Ask again with the ticker in the question.</p>
         <ErrorCode code={error.code} />
       </Notice>
     );
+  }
+  const candidates = error.code === "AMBIGUOUS_INSTRUMENT" ? candidatesOf(error) : null;
+  if (candidates && onChoose) {
+    return <CandidatePicker message={error.message} candidates={candidates} onChoose={onChoose} busy={busy} />;
   }
   const cancelled = status === "cancelled";
   return (

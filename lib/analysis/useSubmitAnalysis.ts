@@ -7,11 +7,13 @@
  * - 422 AMBIGUOUS_INSTRUMENT: no analysis was created. The backend's own
  *   candidates are offered; choosing one resubmits the same question with
  *   `instrument: {symbol, exchange}` (schemas/requests.py `InstrumentRef`).
+ *   `ticker_required` has nothing to choose from: it is shown as an error that
+ *   asks for the ticker once.
  * - anything else: the structured error, with the request kept for a retry.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ApiError, ambiguityCandidates, isAbortError, isAmbiguousInstrument, isApiError } from "@/lib/api/client";
+import { ApiError, ambiguityCandidates, isAbortError, isAmbiguousInstrument, isApiError, isTickerRequired } from "@/lib/api/client";
 import { useApiDeps } from "@/lib/api/deps";
 import type { CreateAnalysisRequest, CreateAnalysisResponse, InstrumentCandidate } from "@/lib/api/types";
 
@@ -66,7 +68,7 @@ export function useSubmitAnalysis(
         })
         .catch((cause: unknown) => {
           if (controller.signal.aborted || isAbortError(cause)) return;
-          if (isAmbiguousInstrument(cause)) {
+          if (isAmbiguousInstrument(cause) && !isTickerRequired(cause)) {
             setState({ status: "ambiguous", request, message: cause.message, candidates: ambiguityCandidates(cause) });
             return;
           }

@@ -9,8 +9,8 @@ import type { AnalysisViewState } from "@/lib/analysis/reducer";
 import type { MarketFundamentals, MarketSeries } from "@/lib/api/types";
 import { seriesFor, toBars, type Bar } from "./series";
 
-export const NO_PRICE_HISTORY = "No price history — web search results don't include a daily price series.";
-export const NO_QUARTERLY_FIGURES = "No quarterly figures — these would need a data source; this analysis uses web search only.";
+export const NO_PRICE_HISTORY = "No price history — web search didn't return a page with this company's daily prices.";
+export const NO_QUARTERLY_FIGURES = "No quarterly figures — web search didn't return a page with this company's quarterly results.";
 
 export interface SymbolIdentity {
   symbol: string;
