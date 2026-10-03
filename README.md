@@ -42,6 +42,21 @@ The browser never talks to the BayAnalytics API and never holds its key.
   `docs/AUTH.md` for the reserved model. **BayAnalytics doesn't store your password because there
   isn't one.**
 
+## The Markets page (crypto)
+
+`/markets` is the crypto terminal over the [Baystfirm](../baystfirm) backend, a separate,
+owner-approved source: normalized public trades from the venues the backend runs (Coinbase,
+Kraken, Bybit, OKX by default), its stablecoin-peg and short-horizon momentum classifiers and its
+evaluation gate. The browser reads it only through `/api/markets/*`
+(`lib/server/baystProxy.ts`): GET `snapshot`, `classifications`, `events`, `evaluation/gate` and
+`health`, plus the live server-sent stream at `/api/markets/stream` (piped from `/v1/stream/sse`).
+Classifications are shown with probability, horizon, evidence, freshness and abstention, and
+marked Shadow / Uncalibrated until a run passes the gate and is promoted manually. The analysis
+pages are unchanged and stay web-search-only.
+
+Run the backend with `.venv/bin/baystfirm serve --port 8100` in the Baystfirm repository and set
+`BAYST_API_URL` / `BAYST_API_KEY` (server-only, like the BayAnalytics values).
+
 ## Environment
 
 Copy `.env.example` to `.env.local`. Both variables are server-only and deliberately have no
@@ -51,6 +66,8 @@ Copy `.env.example` to `.env.local`. Both variables are server-only and delibera
 | --- | --- | --- |
 | `BAY_API_URL` | `http://127.0.0.1:8000/api/v1` | Backend base URL including the versioned prefix |
 | `BAY_API_KEY` | _(empty)_ | Sent as `Authorization: Bearer <key>`; a loopback-bound backend needs none |
+| `BAYST_API_URL` | `http://127.0.0.1:8100` | Baystfirm crypto backend for `/markets` (no version prefix) |
+| `BAYST_API_KEY` | _(empty)_ | Bearer key when the Baystfirm service sets `BAYST_API_KEY` |
 
 The same build runs against a local or a cloud backend by changing these two values.
 
