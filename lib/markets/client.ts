@@ -1,0 +1,83 @@
+/**
+ * Browser client for the Markets page. Everything goes through the same-origin
+ * `/api/markets` proxy; the Baystfirm URL and key stay on the server.
+ */
+
+import type { Classification, EvaluationGate, MarketEvent, MarketsSnapshot } from "./types";
+
+export const MARKETS_API_BASE = "/api/markets";
+
+export class MarketsError extends Error {
+  constructor(
+    message: string,
+    readonly httpStatus: number,
+    readonly code: string,
+  ) {
+    super(message);
+    this.name = "MarketsError";
+  }
+}
+
+async function errorFrom(response: Response): Promise<MarketsError> {
+  let message = `The crypto backend answered ${response.status}.`;
+  let code = `HTTP_${response.status}`;
+  try {
+    const body = (await response.json()) as { error?: { code?: string; message?: string }; detail?: unknown };
+    if (body.error?.message) message = body.error.message;
+    if (body.error?.code) code = body.error.code;
+    else if (typeof body.detail === "string") message = body.detail;
+  } catch {
+    /* non-JSON error body: keep the status message */
+  }
+  return new MarketsError(message, response.status, code);
+}
+
+export async function getMarketsJson<T>(path: string, fetchImpl: typeof fetch = fetch, signal?: AbortSignal): Promise<T> {
+  let response: Response;
+  try {
+    response = await fetchImpl(`${MARKETS_API_BASE}/${path}`, { headers: { accept: "application/json" }, cache: "no-store", signal });
+  } catch (cause) {
+    if (cause instanceof DOMException && cause.name === "AbortError") throw cause;
+    throw new MarketsError("The crypto backend could not be reached.", 0, "NETWORK_ERROR");
+  }
+  if (!response.ok) throw await errorFrom(response);
+  return (await response.json()) as T;
+}
+
+export const fetchSnapshot = (fetchImpl?: typeof fetch, signal?: AbortSignal) =>
+  getMarketsJson<MarketsSnapshot>("snapshot", fetchImpl, signal);
+
+export const fetchGate = (fetchImpl?: typeof fetch, signal?: AbortSignal) =>
+  getMarketsJson<EvaluationGate>("evaluation/gate", fetchImpl, signal);
+
+export type StreamStatus = "connecting" | "live" | "reconnecting" | "closed";
+
+export interface MarketsStreamHandlers {
+  onEvent: (event: MarketEvent) => void;
+  onClassification: (item: Classification) => void;
+  onStatus: (status: StreamStatus) => void;
+}
+
+/** The live stream through `/api/markets/stream`; the browser reconnects on its own. */
+export function openMarketsStream(handlers: MarketsStreamHandlers, EventSourceImpl: typeof EventSource = EventSource): () => void {
+  const source = new EventSourceImpl(`${MARKETS_API_BASE}/stream`);
+  handlers.onStatus("connecting");
+  const parse = <T,>(raw: string): T | null => {
+    try {
+      return JSON.parse(raw) as T;
+    } catch {
+      return null;
+    }
+  };
+  source.onopen = () => handlers.onStatus("live");
+  source.onerror = () => handlers.onStatus(source.readyState === EventSourceImpl.CLOSED ? "closed" : "reconnecting");
+  source.addEventListener("market_event", (message) => {
+    const event = parse<MarketEvent>((message as MessageEvent<string>).data);
+    if (event) handlers.onEvent(event);
+  });
+  source.addEventListener("classification", (message) => {
+    const item = parse<Classification>((message as MessageEvent<string>).data);
+    if (item) handlers.onClassification(item);
+  });
+  return () => source.close();
+}

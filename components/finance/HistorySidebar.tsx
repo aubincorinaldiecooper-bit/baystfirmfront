@@ -5,7 +5,7 @@
  * loading / empty / error states. Selecting a row opens /analyses/{id}. */
 
 import { usePathname, useRouter } from "next/navigation";
-import { ChartLine, RefreshCw } from "lucide-react";
+import { Activity, ChartLine, RefreshCw } from "lucide-react";
 import { Button } from "@/components/atoms/Button";
 import LoadingState from "@/components/primitives/LoadingState";
 import SidebarNav, { type SidebarRecent } from "@/components/primitives/SidebarNav";
@@ -85,6 +85,13 @@ export default function HistorySidebar({
       fill
       workspaceName="BayAnalytics"
       logo={<ChartLine size={18} aria-hidden />}
+      navItems={[{ key: "markets", label: "Markets", icon: <Activity size={18} aria-hidden /> }]}
+      activeNav={pathname?.startsWith("/markets") ? "markets" : ""}
+      onNavigate={(key) => {
+        if (key !== "markets") return;
+        onNavigate?.();
+        router.push("/markets");
+      }}
       newLabel="New analysis"
       onNew={() => {
         onNavigate?.();
