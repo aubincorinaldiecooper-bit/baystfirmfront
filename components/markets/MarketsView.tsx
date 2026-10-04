@@ -9,7 +9,7 @@ import { StatusPill } from "@/components/atoms/StatusPill";
 import PageHeader from "@/components/finance/PageHeader";
 import { Notice, Section } from "@/components/finance/ui";
 import type { StreamStatus } from "@/lib/markets/client";
-import { formatClock, formatCompact, formatMs, formatQuote } from "@/lib/markets/labels";
+import { formatClock, formatCompact, formatMs, formatQuote, venueLabel } from "@/lib/markets/labels";
 import { spreadBps } from "@/lib/markets/metrics";
 import { classificationsFor, instrumentKey, instrumentRows, type InstrumentRow } from "@/lib/markets/state";
 import type { MarketEvent } from "@/lib/markets/types";
@@ -83,7 +83,7 @@ function InstrumentTable({
                 className={`cursor-pointer border-b border-line last:border-0 ${row.key === selected ? "bg-accent-tint" : "hover:bg-hover-2"}`}
               >
                 <td className="px-4 py-2 font-mono text-ink">{row.symbol}</td>
-                <td className="px-2 py-2 text-ink-2">{row.venue}</td>
+                <td className="px-2 py-2 text-ink-2">{venueLabel(row.venue)}</td>
                 <td className="px-2 py-2 text-ink-2">{row.kind}</td>
                 <td className="px-2 py-2 text-right font-mono tabular-nums text-ink">{formatQuote(row.last.price)}</td>
                 <td className="px-2 py-2 text-right font-mono tabular-nums text-ink-2">{formatQuote(quote?.bid)}</td>
@@ -157,7 +157,7 @@ export default function MarketsView() {
             Market states and probabilities only, not investment advice. No trading, wallets or custody.
           </p>
           <p className="mt-2 max-w-[720px] text-[14px] leading-[1.6] text-ink-2">
-            Live public market data {venues.length > 0 ? `from ${venues.join(", ")} ` : ""}normalized by the crypto backend.
+            Live public market data {venues.length > 0 ? `from ${venues.map(venueLabel).join(", ")} ` : ""}normalized by the crypto backend.
           </p>
 
           {snapshotError && (
@@ -178,8 +178,17 @@ export default function MarketsView() {
             </div>
           )}
 
-          <Section id="tape" title={selectedRow ? `${selectedRow.symbol} · ${selectedRow.venue}` : "Live tape"}>
-            <LiveChart title={selectedRow ? `${selectedRow.symbol} on ${selectedRow.venue}` : "No instrument yet"} ticks={selected ? state.ticks[selected] ?? [] : []} />
+          <Section id="tape" title={selectedRow ? `${selectedRow.symbol} · ${venueLabel(selectedRow.venue)}` : "Live tape"}>
+            <LiveChart
+              title={
+                selectedRow
+                  ? `${selectedRow.symbol} on ${venueLabel(selectedRow.venue)}`
+                  : "No instrument yet"
+              }
+              venue={selectedRow?.venue ?? null}
+              symbol={selectedRow?.symbol ?? null}
+              ticks={selected ? state.ticks[selected] ?? [] : []}
+            />
           </Section>
 
           <Section id="instruments" title="Instruments" count={rows.length}>

@@ -36,6 +36,23 @@ describe("proxyMarketsRequest", () => {
     expect(sent.get("cookie")).toBeNull();
   });
 
+  it("forwards candle selectors through the server-side proxy", async () => {
+    const { fetchImpl, calls } = upstream(() => new Response('{"candles":[]}', { status: 200 }));
+    const request = new Request(
+      "http://localhost:3000/api/markets/candles?venue=binanceus&symbol=BTC-USDT&interval=1w&limit=200&key=ignored",
+    );
+    const response = await proxyMarketsRequest(request, ["candles"], {
+      fetch: fetchImpl,
+      config: CONFIG,
+      session,
+    });
+    expect(response.status).toBe(200);
+    expect(calls[0].url).toBe(
+      "http://bayst.test/v1/candles?venue=binanceus&symbol=BTC-USDT&interval=1w&limit=200",
+    );
+    expect(new Headers(calls[0].init.headers).get("authorization")).toBe("Bearer crypto-key");
+  });
+
   it("refuses unknown routes and non-GET methods without calling upstream", async () => {
     const { fetchImpl, calls } = upstream(() => new Response("{}"));
     const deps = { fetch: fetchImpl, config: CONFIG, session };

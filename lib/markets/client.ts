@@ -3,7 +3,14 @@
  * `/api/markets` proxy; the Baystfirm URL and key stay on the server.
  */
 
-import type { Classification, EvaluationGate, MarketEvent, MarketsSnapshot } from "./types";
+import type {
+  CandleInterval,
+  CandleResponse,
+  Classification,
+  EvaluationGate,
+  MarketEvent,
+  MarketsSnapshot,
+} from "./types";
 
 export const MARKETS_API_BASE = "/api/markets";
 
@@ -49,6 +56,17 @@ export const fetchSnapshot = (fetchImpl?: typeof fetch, signal?: AbortSignal) =>
 
 export const fetchGate = (fetchImpl?: typeof fetch, signal?: AbortSignal) =>
   getMarketsJson<EvaluationGate>("evaluation/gate", fetchImpl, signal);
+
+export const fetchCandles = (
+  venue: string,
+  symbol: string,
+  interval: CandleInterval,
+  fetchImpl: typeof fetch = fetch,
+  signal?: AbortSignal,
+) => {
+  const query = new URLSearchParams({ venue, symbol, interval, limit: "300" });
+  return getMarketsJson<CandleResponse>(`candles?${query}`, fetchImpl, signal);
+};
 
 export type StreamStatus = "connecting" | "live" | "reconnecting" | "closed";
 

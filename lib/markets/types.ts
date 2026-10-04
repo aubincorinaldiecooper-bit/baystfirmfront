@@ -38,6 +38,45 @@ export interface MarketEvent {
   metadata: Record<string, unknown>;
 }
 
+export const CANDLE_INTERVALS = [
+  "1m",
+  "3m",
+  "5m",
+  "15m",
+  "30m",
+  "1h",
+  "2h",
+  "4h",
+  "6h",
+  "12h",
+  "1d",
+  "1w",
+] as const;
+
+export type CandleInterval = (typeof CANDLE_INTERVALS)[number];
+
+export interface CandleBar {
+  open_time: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
+export interface CandleResponse {
+  venue: string;
+  symbol: string;
+  interval: CandleInterval;
+  source_url_template: string;
+  fetched_at: string;
+  aggregated_from: CandleInterval | null;
+  candles: CandleBar[];
+  stale: boolean;
+  error?: string;
+  truncated: boolean;
+}
+
 export interface Evidence {
   metric: string;
   value: number | string;
