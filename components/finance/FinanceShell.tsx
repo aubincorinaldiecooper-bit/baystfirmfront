@@ -2,7 +2,7 @@
 /* Shell layout adapted from Beautiful UI's harness (https://github.com/slev12397/beautiful-ui) — MIT License,
  * Copyright (c) 2026 Shane Levine. Full notice in LICENSE-THIRD-PARTY at the repo root. */
 
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { Suspense, useCallback, useEffect, useState, type ReactNode } from "react";
 import { useCapabilities } from "@/lib/api/capabilities";
 import { useApiDeps } from "@/lib/api/deps";
 import { useAnalysisHistory } from "@/lib/api/history";
@@ -57,15 +57,17 @@ export default function FinanceShell({ children }: { children: ReactNode }) {
             drawerOpen ? "fixed inset-y-0 left-0 z-40 flex bg-canvas p-2.5 shadow-overlay" : "hidden"
           } md:static md:z-auto md:flex md:bg-transparent md:p-0 md:shadow-none`}
         >
-          <HistorySidebar
-            history={history}
-            collapsed={drawerOpen ? false : railCollapsed}
-            onCollapsedChange={(collapsed) => {
-              if (drawerOpen) setDrawerOpen(false);
-              else setRailCollapsed(collapsed);
-            }}
-            onNavigate={closeDrawer}
-          />
+          <Suspense fallback={<div className="h-full w-[224px]" aria-hidden />}>
+            <HistorySidebar
+              history={history}
+              collapsed={drawerOpen ? false : railCollapsed}
+              onCollapsedChange={(collapsed) => {
+                if (drawerOpen) setDrawerOpen(false);
+                else setRailCollapsed(collapsed);
+              }}
+              onNavigate={closeDrawer}
+            />
+          </Suspense>
         </div>
         <section className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-[14px] border border-line bg-page">
           {children}

@@ -67,8 +67,8 @@ export default function LiveChart({
   }, [interval, symbol, venue]);
 
   const mergedCandles = useMemo(
-    () => mergeTradeIntoCurrentCandle(response?.candles ?? [], last, interval),
-    [interval, last, response],
+    () => mergeTradeIntoCurrentCandle(response?.candles ?? [], ticks, interval),
+    [interval, response, ticks],
   );
   const chartCandles = useMemo(
     () =>

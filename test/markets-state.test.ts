@@ -151,6 +151,10 @@ describe("marketsReducer", () => {
       index_price: 100,
       contract_multiplier: 0.01,
     });
+    expect(state.derivatives[key].field_event_ids).toMatchObject({
+      funding_rate: "bybit-BTC-USDT-PERP-funding-4",
+      contract_multiplier: "bybit-BTC-USDT-PERP-open_interest-5",
+    });
     expect(state.liquidations).toHaveLength(1);
   });
 
@@ -201,6 +205,7 @@ describe("marketsReducer", () => {
     });
     expect(instrumentRows(state)[0].streamed).toBe(0);
     expect(classificationsFor(state, "stablecoin_peg").map((item) => item.label)).toEqual(["pegged"]);
+    expect(state.snapshotLoaded).toBe(true);
   });
 
   it("never replaces a classification with an older one and bounds the tick history", () => {

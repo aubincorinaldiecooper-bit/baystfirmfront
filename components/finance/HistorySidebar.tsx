@@ -4,7 +4,7 @@
  * first), a load-more control while the backend reports a next cursor, and
  * loading / empty / error states. Selecting a row opens /analyses/{id}. */
 
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Activity, ChartLine, RefreshCw, Server } from "lucide-react";
 import { Button } from "@/components/atoms/Button";
 import LoadingState from "@/components/primitives/LoadingState";
@@ -12,6 +12,8 @@ import SidebarNav, { type SidebarRecent } from "@/components/primitives/SidebarN
 import type { UseAnalysisHistoryResult } from "@/lib/api/history";
 import type { AnalysisSummary } from "@/lib/api/types";
 import { statusLabel } from "@/lib/analysis/labels";
+import { venueLabel } from "@/lib/markets/labels";
+import { useWatchlist } from "@/lib/markets/useWatchlist";
 
 export function historyRow(row: AnalysisSummary): SidebarRecent {
   const symbol = row.instrument?.symbol ?? null;
@@ -41,7 +43,18 @@ export default function HistorySidebar({
 }) {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const watchlist = useWatchlist();
   const activeId = activeAnalysisId(pathname);
+  const activeWatchlistId = pathname?.startsWith("/markets") ? searchParams.get("instrument") : null;
+  const watchlistRows = watchlist.keys.flatMap((key): SidebarRecent[] => {
+    const separator = key.indexOf("|");
+    if (separator <= 0) return [];
+    const venue = key.slice(0, separator);
+    const symbol = key.slice(separator + 1);
+    if (!symbol) return [];
+    return [{ id: key, label: `${symbol} · ${venueLabel(venue)}` }];
+  });
 
   const firstLoad = !history.loaded && (history.status === "loading" || history.status === "idle");
   const empty = firstLoad ? (
@@ -105,6 +118,13 @@ export default function HistorySidebar({
         router.push("/");
       }}
       recents={history.items.map(historyRow)}
+      watchlist={watchlistRows}
+      watchlistEmpty="Star instruments on Markets to see them here"
+      activeWatchlistId={activeWatchlistId}
+      onPickWatchlist={(key) => {
+        onNavigate?.();
+        router.push(`/markets?instrument=${encodeURIComponent(key)}`);
+      }}
       activeId={activeId}
       onPick={(id) => {
         onNavigate?.();

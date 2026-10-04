@@ -36,6 +36,7 @@ export interface MarketsState {
   liquidations: MarketEvent[];
   classifications: Record<string, Classification>;
   events: number;
+  snapshotLoaded: boolean;
 }
 
 export type DerivativeField =
@@ -60,6 +61,7 @@ export interface DerivativeState {
   index_price: number | null;
   contract_multiplier: number | null;
   field_timestamps: Partial<Record<DerivativeField, string>>;
+  field_event_ids: Partial<Record<DerivativeField, string>>;
 }
 
 export function initialMarketsState(): MarketsState {
@@ -71,6 +73,7 @@ export function initialMarketsState(): MarketsState {
     liquidations: [],
     classifications: {},
     events: 0,
+    snapshotLoaded: false,
   };
 }
 
@@ -151,8 +154,13 @@ function withEvent(state: MarketsState, event: MarketEvent, streamed: boolean): 
       index_price: null,
       contract_multiplier: null,
       field_timestamps: {},
+      field_event_ids: {},
     };
-    const updated: DerivativeState = { ...current, field_timestamps: { ...current.field_timestamps } };
+    const updated: DerivativeState = {
+      ...current,
+      field_timestamps: { ...current.field_timestamps },
+      field_event_ids: { ...current.field_event_ids },
+    };
     const fields: DerivativeField[] =
       event.event_type === "funding"
         ? ["funding_rate", "next_funding_at", "mark_price", "index_price"]
@@ -170,6 +178,7 @@ function withEvent(state: MarketsState, event: MarketEvent, streamed: boolean): 
       if (field !== "next_funding_at" && typeof value !== "number") continue;
       Object.assign(updated, { [field]: value });
       updated.field_timestamps[field] = event.exchange_timestamp;
+      updated.field_event_ids[field] = event.event_id;
     }
     derivatives = { ...state.derivatives, [key]: updated };
   }
@@ -208,7 +217,7 @@ export function marketsReducer(state: MarketsState, action: MarketsAction): Mark
   if (action.type === "snapshot") {
     for (const event of action.snapshot.latest_events) next = withEvent(next, event, false);
     for (const item of action.snapshot.latest_classifications) next = withClassification(next, item);
-    return next;
+    return { ...next, snapshotLoaded: true };
   }
   for (const event of action.events) next = withEvent(next, event, true);
   for (const item of action.classifications) next = withClassification(next, item);

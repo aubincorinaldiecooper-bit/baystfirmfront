@@ -71,6 +71,10 @@ type SidebarNavProps = {
   workspaceMenu?: SidebarMenuItem[];
   navItems?: SidebarNavItem[];
   recents?: SidebarRecent[];
+  watchlist?: SidebarRecent[];
+  watchlistEmpty?: ReactNode;
+  activeWatchlistId?: string | null;
+  onPickWatchlist?: (id: string) => void;
   /** controlled selection in the history list (matched by label) */
   activeTitle?: string | null;
   /** controlled selection in the history list by id; wins over `activeTitle` */
@@ -220,6 +224,10 @@ export default function SidebarNav({
   workspaceMenu = [],
   navItems = [],
   recents = [],
+  watchlist = [],
+  watchlistEmpty,
+  activeWatchlistId,
+  onPickWatchlist,
   activeTitle,
   activeId,
   recentsEmpty,
@@ -498,6 +506,44 @@ export default function SidebarNav({
             </>
           )}
           {recents.length === 0 && recentsEmpty && <div className="sidebar-copy mx-2">{recentsEmpty}</div>}
+          {(watchlistEmpty !== undefined || watchlist.length > 0) && (
+            <>
+              <div className="sidebar-copy relative mx-2 mb-1 mt-3 h-8">
+                <div className="absolute inset-0 flex items-center gap-1.5 px-2 text-[12.5px] font-medium text-ink-3">
+                  <ChevronDown size={16} />
+                  <span>Watchlist</span>
+                </div>
+              </div>
+              {watchlist.length > 0 ? (
+                <GlideGroup>
+                  {watchlist.map((item) => {
+                    const active = item.id === activeWatchlistId;
+                    return (
+                      <button
+                        key={item.id}
+                        data-row
+                        type="button"
+                        title={item.label}
+                        aria-current={active ? "true" : undefined}
+                        onClick={() => onPickWatchlist?.(item.id)}
+                        className={`sidebar-row relative z-10 mx-2 flex h-8 items-center rounded-[8px] px-2 text-left transition-[width,background-color,color,transform] duration-150 active:scale-[0.98] ${
+                          active ? "bg-hover-2 group-hover/glide:bg-transparent" : ""
+                        }`}
+                      >
+                        <span className={`sidebar-copy min-w-0 flex-1 truncate text-[14px] font-medium ${active ? "text-ink" : "text-ink-2"}`}>
+                          {item.label}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </GlideGroup>
+              ) : (
+                <p className="sidebar-copy mx-2 px-2 py-2 text-[12.5px] leading-[1.5] text-ink-3">
+                  {watchlistEmpty ?? "Star instruments on Markets to see them here"}
+                </p>
+              )}
+            </>
+          )}
         </div>
 
         {footerLabel && (

@@ -14,16 +14,18 @@ import { capabilitiesFixture, clone, historyPages, jsonResponse } from "./fixtur
 import { stubBackend, type RouteHandler } from "./helpers/fake-backend";
 import { renderWorkspace } from "./helpers/workspace";
 
-const nav = vi.hoisted(() => ({ push: vi.fn(), pathname: "/" }));
+const nav = vi.hoisted(() => ({ push: vi.fn(), pathname: "/", search: "" }));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: nav.push, replace: vi.fn(), prefetch: vi.fn(), back: vi.fn(), forward: vi.fn(), refresh: vi.fn() }),
   usePathname: () => nav.pathname,
+  useSearchParams: () => new URLSearchParams(nav.search),
 }));
 
 afterEach(cleanup);
 beforeEach(() => {
   nav.push.mockReset();
   nav.pathname = "/";
+  nav.search = "";
 });
 
 const [page1, page2] = historyPages.pages;
