@@ -93,9 +93,11 @@ function MarketHarness({ initialState }: { initialState: MarketsState }) {
 
 afterEach(() => {
   cleanup();
+  vi.unstubAllEnvs();
 });
 
 beforeEach(() => {
+  vi.stubEnv("NEXT_PUBLIC_WATCHLIST_ALERTS", "true");
   localStorage.clear();
   navigation.search = "";
   navigation.pathname = "/markets";
@@ -203,5 +205,34 @@ describe("MarketsView browser-only watchlist and alerts", () => {
 
     expect(await screen.findByText("BTC-USD on coinbase last price crossed above 100.000.")).toBeTruthy();
     expect(screen.getByText(/Observed 101\.000 · Source price-cross-event/)).toBeTruthy();
+  });
+
+  it("hides watchlist and alerts UI when the feature flag is unset without disabling selection", () => {
+    vi.stubEnv("NEXT_PUBLIC_WATCHLIST_ALERTS", undefined);
+    navigation.search = "?instrument=kraken%7CETH-USD";
+    render(
+      <MarketHarness
+        initialState={snapshotState([
+          trade("coinbase", "BTC-USD", 100, 1),
+          trade("kraken", "ETH-USD", 20, 1),
+        ])}
+      />,
+    );
+
+    const section = screen.getByRole("region", { name: /Instruments/ });
+    expect(within(section).getByRole("row", { name: /ETH-USD/ }).getAttribute("aria-selected")).toBe("true");
+    expect(within(section).queryByRole("group", { name: "Instrument filter" })).toBeNull();
+    expect(within(section).queryByRole("button", { name: /watchlist/i })).toBeNull();
+    expect(within(section).queryByText("Watchlist")).toBeNull();
+    expect(screen.queryByRole("region", { name: "Alerts" })).toBeNull();
+  });
+
+  it("does not render the sidebar watchlist when the feature flag is unset", () => {
+    vi.stubEnv("NEXT_PUBLIC_WATCHLIST_ALERTS", undefined);
+    localStorage.setItem("baystfirm.markets.watchlist.v1", JSON.stringify(["coinbase|BTC-USD"]));
+    render(<HistorySidebar history={emptyHistory} />);
+
+    expect(screen.queryByRole("button", { name: "BTC-USD · coinbase" })).toBeNull();
+    expect(screen.queryByText("Star instruments on Markets to see them here")).toBeNull();
   });
 });
