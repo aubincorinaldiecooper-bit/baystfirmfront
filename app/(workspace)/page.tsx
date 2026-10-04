@@ -1,7 +1,5 @@
-import NewAnalysis from "@/components/finance/NewAnalysis";
+import HomeView from "@/components/finance/HomeView";
 
-/* The product starts with a question: the composer, with the backend's real
- * capabilities underneath. Submitting opens the analysis at /analyses/{id}. */
 export default function HomePage() {
-  return <NewAnalysis />;
+  return <HomeView />;
 }

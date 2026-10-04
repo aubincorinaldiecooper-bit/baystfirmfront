@@ -2,11 +2,14 @@
 /* Shell layout adapted from Beautiful UI's harness (https://github.com/slev12397/beautiful-ui) — MIT License,
  * Copyright (c) 2026 Shane Levine. Full notice in LICENSE-THIRD-PARTY at the repo root. */
 
-import { Suspense, useCallback, useEffect, useState, type ReactNode } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useCapabilities } from "@/lib/api/capabilities";
 import { useApiDeps } from "@/lib/api/deps";
 import { useAnalysisHistory } from "@/lib/api/history";
+import MarketsProvider, { useMarketsContext as useProviderMarkets } from "@/components/markets/MarketsProvider";
+import type { UseMarketsResult } from "@/lib/markets/useMarkets";
 import HistorySidebar from "./HistorySidebar";
+import RecentAssetTracker from "./RecentAssetTracker";
 import { WorkspaceContext, type WorkspaceValue } from "./workspace";
 
 /* ─────────────────────────────────────────────────────────
@@ -20,14 +23,26 @@ import { WorkspaceContext, type WorkspaceValue } from "./workspace";
 
 const HISTORY_PAGE_SIZE = 30;
 
-export default function FinanceShell({ children }: { children: ReactNode }) {
+export default function FinanceShell({ children, marketsOverride }: { children: ReactNode; marketsOverride?: UseMarketsResult }) {
+  return (
+    <MarketsProvider value={marketsOverride}>
+      <FinanceWorkspace>{children}</FinanceWorkspace>
+    </MarketsProvider>
+  );
+}
+
+function FinanceWorkspace({ children }: { children: ReactNode }) {
   const { client } = useApiDeps();
   const history = useAnalysisHistory(client, { limit: HISTORY_PAGE_SIZE });
   const capabilities = useCapabilities(client);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [railCollapsed, setRailCollapsed] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const markets = useProviderMarkets();
 
   const openSidebar = useCallback(() => setDrawerOpen(true), []);
+  const focusSearch = useCallback(() => searchInputRef.current?.focus(), []);
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
 
   useEffect(() => {
@@ -39,10 +54,13 @@ export default function FinanceShell({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [drawerOpen]);
 
-  const value: WorkspaceValue = { history, capabilities, openSidebar };
+  const value: WorkspaceValue = { history, capabilities, markets, searchQuery, setSearchQuery, focusSearch, searchInputRef, openSidebar };
 
   return (
     <WorkspaceContext.Provider value={value}>
+      <Suspense fallback={null}>
+        <RecentAssetTracker />
+      </Suspense>
       <main className="flex h-[100dvh] gap-2.5 bg-canvas p-1.5 text-ink sm:p-2.5">
         {drawerOpen && (
           <button

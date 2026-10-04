@@ -9,7 +9,7 @@ import { createPortal } from "react-dom";
 /* Icons: upstream uses the commercial @central-icons-react set. This copy uses
  * the ISC-licensed lucide-react equivalents (same `size` prop, 2px stroke), so
  * the build needs no CENTRAL_LICENSE_KEY. */
-import { ChevronDown, LayoutGrid, PanelLeftClose, Search, SquarePen, X } from "lucide-react";
+import { Bell, ChevronDown, LayoutGrid, PanelLeftClose, Search, SquarePen, X } from "lucide-react";
 import GlideMenu from "@/components/primitives/GlideMenu";
 
 /* ─────────────────────────────────────────────────────────
@@ -38,6 +38,7 @@ export type SidebarRecent = {
   prompt?: string;
   /** short muted trailing text, e.g. a ticker or a status */
   detail?: string;
+  at?: string;
 };
 
 export type SidebarMenuItem = {
@@ -75,6 +76,10 @@ type SidebarNavProps = {
   watchlistEmpty?: ReactNode;
   activeWatchlistId?: string | null;
   onPickWatchlist?: (id: string) => void;
+  alerts?: SidebarRecent[];
+  alertsEmpty?: ReactNode;
+  activeAlertId?: string | null;
+  onPickAlert?: (id: string) => void;
   /** controlled selection in the history list (matched by label) */
   activeTitle?: string | null;
   /** controlled selection in the history list by id; wins over `activeTitle` */
@@ -228,6 +233,10 @@ export default function SidebarNav({
   watchlistEmpty,
   activeWatchlistId,
   onPickWatchlist,
+  alerts = [],
+  alertsEmpty,
+  activeAlertId,
+  onPickAlert,
   activeTitle,
   activeId,
   recentsEmpty,
@@ -541,6 +550,44 @@ export default function SidebarNav({
                 <p className="sidebar-copy mx-2 px-2 py-2 text-[12.5px] leading-[1.5] text-ink-3">
                   {watchlistEmpty ?? "Star instruments on Markets to see them here"}
                 </p>
+              )}
+            </>
+          )}
+          {(alertsEmpty !== undefined || alerts.length > 0) && (
+            <>
+              <div className="sidebar-copy relative mx-2 mb-1 mt-3 h-8">
+                <div className="absolute inset-0 flex items-center gap-1.5 px-2 text-[12.5px] font-medium text-ink-3">
+                  <ChevronDown size={16} />
+                  <Bell size={13} aria-hidden />
+                  <span>Alerts</span>
+                </div>
+              </div>
+              {alerts.length > 0 ? (
+                <GlideGroup>
+                  {alerts.map((item) => {
+                    const active = item.id === activeAlertId;
+                    return (
+                      <button
+                        key={item.id}
+                        data-row
+                        type="button"
+                        title={item.label}
+                        aria-current={active ? "true" : undefined}
+                        onClick={() => onPickAlert?.(item.id)}
+                        className={`sidebar-row relative z-10 mx-2 flex min-h-8 items-center rounded-[8px] px-2 py-1 text-left transition-[width,background-color,color,transform] duration-150 active:scale-[0.98] ${
+                          active ? "bg-hover-2 group-hover/glide:bg-transparent" : ""
+                        }`}
+                      >
+                        <span className={`sidebar-copy min-w-0 flex-1 truncate text-[12.5px] font-medium ${active ? "text-ink" : "text-ink-2"}`}>
+                          {item.label}
+                        </span>
+                        {item.detail && <span className="sidebar-copy ml-2 shrink-0 text-[10.5px] font-medium text-ink-3">{item.detail}</span>}
+                      </button>
+                    );
+                  })}
+                </GlideGroup>
+              ) : (
+                <p className="sidebar-copy mx-2 px-2 py-2 text-[12.5px] leading-[1.5] text-ink-3">{alertsEmpty}</p>
               )}
             </>
           )}

@@ -10,7 +10,7 @@ import {
   type AlertRule,
 } from "@/lib/markets/alerts";
 import type { InstrumentRow, MarketsState } from "@/lib/markets/state";
-import { useAlerts } from "@/lib/markets/useAlerts";
+import { useMarketsContext } from "@/components/finance/workspace";
 
 type FormKind = AlertMetric | "peg" | "liquidation";
 
@@ -61,7 +61,7 @@ export default function AlertsPanel({
   state: MarketsState;
   rows: InstrumentRow[];
 }) {
-  const { rules, firings, notificationPermission, addRule, removeRule, requestNotifications } = useAlerts(state);
+  const alerts = useMarketsContext().alerts;
   const [kind, setKind] = useState<FormKind>("last_price");
   const [selectedKey, setSelectedKey] = useState("");
   const [op, setOp] = useState<"above" | "below">("above");
@@ -78,6 +78,9 @@ export default function AlertsPanel({
   useEffect(() => {
     if (!availableRows.some((row) => row.key === selectedKey)) setSelectedKey(availableRows[0]?.key ?? "");
   }, [availableRows, selectedKey]);
+
+  if (!alerts) return null;
+  const { rules, firings, notificationPermission, addRule, removeRule, requestNotifications } = alerts;
 
   function addFromForm(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

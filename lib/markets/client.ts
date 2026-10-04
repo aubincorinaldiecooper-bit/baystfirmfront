@@ -10,7 +10,12 @@ import type {
   EvaluationGate,
   MarketEvent,
   MarketsSnapshot,
+  NewTokensFeed,
   SignalBacktest,
+  SolanaCandleInterval,
+  SolanaSearchResponse,
+  TokenCard,
+  TokenCandleResponse,
   TrackRecord,
 } from "./types";
 
@@ -65,6 +70,32 @@ export const fetchTrackRecord = (windowHours: number, fetchImpl?: typeof fetch, 
 export const fetchSignalBacktest = (fetchImpl?: typeof fetch, signal?: AbortSignal) =>
   getMarketsJson<SignalBacktest>("track-record/backtest", fetchImpl, signal);
 
+export const fetchNewTokens = (limit: number, fetchImpl?: typeof fetch, signal?: AbortSignal) =>
+  getMarketsJson<NewTokensFeed>(`solana/tokens/new?limit=${limit}`, fetchImpl, signal);
+
+export const fetchTokenCard = (mint: string, fetchImpl?: typeof fetch, signal?: AbortSignal) =>
+  getMarketsJson<TokenCard>(`solana/tokens/${encodeURIComponent(mint)}`, fetchImpl, signal);
+
+export const fetchTokenCandles = (
+  mint: string,
+  interval: SolanaCandleInterval,
+  fetchImpl: typeof fetch = fetch,
+  signal?: AbortSignal,
+  indicators: readonly string[] = [],
+  limit = 300,
+) => {
+  const query = new URLSearchParams({ interval, limit: String(limit) });
+  for (const spec of indicators) query.append("indicator", spec);
+  return getMarketsJson<TokenCandleResponse>(
+    `solana/tokens/${encodeURIComponent(mint)}/candles?${query}`,
+    fetchImpl,
+    signal,
+  );
+};
+
+export const fetchSolanaTokenSearch = (query: string, fetchImpl?: typeof fetch, signal?: AbortSignal) =>
+  getMarketsJson<SolanaSearchResponse>(`solana/search?${new URLSearchParams({ q: query })}`, fetchImpl, signal);
+
 export const fetchCandles = (
   venue: string,
   symbol: string,
@@ -72,8 +103,9 @@ export const fetchCandles = (
   fetchImpl: typeof fetch = fetch,
   signal?: AbortSignal,
   indicators: readonly string[] = [],
+  limit = 300,
 ) => {
-  const query = new URLSearchParams({ venue, symbol, interval, limit: "300" });
+  const query = new URLSearchParams({ venue, symbol, interval, limit: String(limit) });
   for (const spec of indicators) query.append("indicator", spec);
   return getMarketsJson<CandleResponse>(`candles?${query}`, fetchImpl, signal);
 };

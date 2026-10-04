@@ -79,6 +79,36 @@ export interface CandleResponse {
   indicators?: Record<string, Record<string, (number | null)[]>>;
 }
 
+export const SOLANA_CANDLE_INTERVALS = ["1m", "5m", "15m", "1h", "4h", "1d"] as const;
+export type SolanaCandleInterval = (typeof SOLANA_CANDLE_INTERVALS)[number];
+
+export interface TokenCandleResponse extends CandleResponse {
+  venue: "geckoterminal";
+  mint: string;
+  pool_address: string;
+  dex_id: string;
+  price_currency: "usd";
+}
+
+export interface SolanaSearchResponse {
+  query: string;
+  tokens: {
+    mint: string;
+    symbol: string;
+    name: string;
+    image: string | null;
+    pool_count: number;
+    total_liquidity_usd: number;
+    volume_24h_usd: number;
+    main_pool_address: string;
+    price_usd: number | null;
+    symbol_match: boolean;
+  }[];
+  source: "dexscreener";
+  fetched_at: string;
+  note: string;
+}
+
 export interface Evidence {
   metric: string;
   value: number | string;
@@ -177,5 +207,85 @@ export interface SignalBacktest {
   span_end: string | null;
   sources: { symbol: string; venue: string; bars: number }[];
   groups: TrackRecordGroup[];
+  note: string;
+}
+
+/* Solana token cards (GET /v1/solana/tokens/new and /v1/solana/tokens/{mint}).
+ * Every fact is always present; one a source couldn't answer is "unavailable". */
+export type TokenFactStatus = "ok" | "unavailable" | "not_applicable";
+
+export interface TokenFact<T> {
+  status: TokenFactStatus;
+  value: T | null;
+  source: string;
+  fetched_at: string | null;
+  detail: string | null;
+}
+
+export interface TokenHolder {
+  owner: string;
+  pct: number;
+  is_pool: boolean;
+}
+
+export interface TokenMarket {
+  price_usd: number | null;
+  liquidity_usd: number | null;
+  volume_24h_usd: number | null;
+  price_change_24h_pct: number | null;
+  pool_created_at: string | number | null;
+  pool_count: number;
+  total_liquidity_usd: number;
+  total_volume_24h_usd: number;
+  pools_checked_at: string | null;
+  main_pool: { dex: string; address: string; labels: string[] | null } | null;
+  geckoterminal_liquidity_usd: number | null;
+}
+
+export interface TokenLiquidityLock {
+  pool_type: "launch_curve" | "lp_token" | "position_based" | "unknown";
+  dex: string;
+  pool: string;
+  burned_pct: number | null;
+}
+
+export interface TokenCard {
+  mint: string;
+  name: string | null;
+  symbol: string | null;
+  image_url: string | null;
+  token_program: "spl-token" | "token-2022" | null;
+  first_seen_at: string | null;
+  checked_at: string;
+  facts: {
+    mint_authority: TokenFact<string>;
+    freeze_authority: TokenFact<string>;
+    token_extensions: TokenFact<{ risky: string[]; transfer_fee_bps: number | null }>;
+    metadata_mutable: TokenFact<boolean>;
+    top10_share: TokenFact<{
+      pct: number;
+      holder_count: number | null;
+      as_of: string | null;
+      pool_accounts_excluded: boolean;
+      holders: TokenHolder[];
+    }>;
+    liquidity_lock: TokenFact<TokenLiquidityLock>;
+    market: TokenFact<TokenMarket>;
+  };
+  second_opinion: {
+    provider: string;
+    status: "ok" | "unavailable";
+    fetched_at: string | null;
+    score_normalised: number | null;
+    lp_locked_pct: number | null;
+    risks: { name: string; level: string; description: string }[];
+  };
+}
+
+export interface NewTokensFeed {
+  status: "warming" | "ready";
+  updated_at: string | null;
+  sources: { name: string; fetched_at: string | null; ok: boolean; error: string | null }[];
+  tokens: TokenCard[];
   note: string;
 }
