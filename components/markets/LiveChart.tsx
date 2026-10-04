@@ -1,11 +1,12 @@
 "use client";
 
-import { Liveline } from "liveline";
 import { useEffect, useMemo, useState } from "react";
 import { fetchCandles } from "@/lib/markets/client";
-import { candleIntervalSeconds, mergeTradeIntoCurrentCandle } from "@/lib/markets/candles";
+import { mergeTradeIntoCurrentCandle } from "@/lib/markets/candles";
+import { INDICATOR_OPTIONS, chartLines } from "@/lib/markets/indicators";
 import { formatClock, formatQuote, venueLabel } from "@/lib/markets/labels";
 import type { Tick } from "@/lib/markets/state";
+import TradingChart from "./TradingChart";
 import { CANDLE_INTERVALS, type CandleInterval, type CandleResponse } from "@/lib/markets/types";
 
 function useDarkMode() {
@@ -35,6 +36,7 @@ export default function LiveChart({
   const dark = useDarkMode();
   const last = ticks[ticks.length - 1];
   const [interval, setCandleInterval] = useState<CandleInterval>("1m");
+  const [indicators, setIndicators] = useState<string[]>([]);
   const [response, setResponse] = useState<CandleResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,7 +53,7 @@ export default function LiveChart({
     setResponse(null);
     setError(null);
     setLoading(true);
-    fetchCandles(venue, symbol, interval, fetch, controller.signal)
+    fetchCandles(venue, symbol, interval, fetch, controller.signal, indicators)
       .then(setResponse)
       .catch((cause: unknown) => {
         if (!active || (cause instanceof Error && cause.name === "AbortError")) return;
@@ -64,24 +66,17 @@ export default function LiveChart({
       active = false;
       controller.abort();
     };
-  }, [interval, symbol, venue]);
+  }, [indicators, interval, symbol, venue]);
 
   const mergedCandles = useMemo(
     () => mergeTradeIntoCurrentCandle(response?.candles ?? [], ticks, interval),
     [interval, response, ticks],
   );
-  const chartCandles = useMemo(
-    () =>
-      mergedCandles.map(({ open_time, open, high, low, close }) => ({
-        time: open_time / 1000,
-        open,
-        high,
-        low,
-        close,
-      })),
-    [mergedCandles],
-  );
-  const windowSeconds = candleIntervalSeconds(interval) * 300;
+  const lines = useMemo(() => chartLines(response, indicators), [indicators, response]);
+  const toggleIndicator = (spec: string) =>
+    setIndicators((current) =>
+      current.includes(spec) ? current.filter((item) => item !== spec) : [...current, spec],
+    );
   const emptyText = error
     ? "Candlestick history is unavailable."
     : venue && symbol
@@ -109,24 +104,31 @@ export default function LiveChart({
           </button>
         ))}
       </div>
-      <div className="h-[260px]" aria-label={`Candlestick history for ${symbol ?? "instrument"} on ${venue ? venueLabel(venue) : "venue"}`}>
-        <Liveline
-          data={ticks}
-          value={last?.value ?? chartCandles[chartCandles.length - 1]?.close ?? 0}
-          theme={dark ? "dark" : "light"}
-          window={windowSeconds}
-          mode="candle"
-          candles={chartCandles}
-          candleWidth={candleIntervalSeconds(interval)}
-          loading={loading}
-          emptyText={emptyText}
-          formatValue={formatQuote}
-          formatTime={(time) => formatClock(new Date(time * 1000).toISOString())}
-          grid
-          badge
-          momentum
-        />
+      <div className="mb-2 flex flex-wrap gap-1" role="group" aria-label="Indicators">
+        {INDICATOR_OPTIONS.map((option) => (
+          <button
+            key={option.spec}
+            type="button"
+            aria-pressed={indicators.includes(option.spec)}
+            onClick={() => toggleIndicator(option.spec)}
+            className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] ${
+              indicators.includes(option.spec) ? "bg-ink text-surface" : "bg-surface text-ink-2 hover:bg-hover-2"
+            }`}
+          >
+            {option.pane === "price" && (
+              <span className="inline-block size-2 rounded-full" style={{ background: `var(${option.color})` }} />
+            )}
+            {option.label}
+          </button>
+        ))}
       </div>
+      <TradingChart
+        candles={mergedCandles}
+        lines={lines}
+        dark={dark}
+        emptyText={mergedCandles.length > 0 ? null : loading ? "Loading candles…" : emptyText}
+        ariaLabel={`Candlestick history for ${symbol ?? "instrument"} on ${venue ? venueLabel(venue) : "venue"}`}
+      />
       <p className="mt-2 text-[11.5px] text-ink-3">
         {ticks.length} recorded trade{ticks.length === 1 ? "" : "s"} since this page opened.
       </p>
@@ -135,7 +137,14 @@ export default function LiveChart({
           Candles from {venueLabel(response.venue)} public API · fetched {formatClock(response.fetched_at)}
           {response.aggregated_from ? ` · aggregated from ${response.aggregated_from}` : ""}
         </p>
-      ) : (
+      ) : null}
+      {response && indicators.length > 0 ? (
+        <p className="mt-1 text-[11.5px] text-ink-3">
+          Indicators computed by the Baystfirm backend from these candles when fetched; each starts blank until it has
+          enough bars and does not move with the live candle.
+        </p>
+      ) : null}
+      {response ? null : (
         <p className="mt-1 text-[11.5px] text-ink-3">
           {error
             ? `Candles from ${venue ? venueLabel(venue) : "the selected venue"} public API are unavailable.`

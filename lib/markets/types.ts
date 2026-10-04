@@ -75,6 +75,8 @@ export interface CandleResponse {
   stale: boolean;
   error?: string;
   truncated: boolean;
+  /** Backend-computed indicator outputs keyed by canonical spec, aligned 1:1 with `candles`; `null` during warm-up. */
+  indicators?: Record<string, Record<string, (number | null)[]>>;
 }
 
 export interface Evidence {

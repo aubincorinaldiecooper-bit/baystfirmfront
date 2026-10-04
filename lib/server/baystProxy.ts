@@ -23,6 +23,8 @@ export const MARKETS_ROUTES: Readonly<Record<string, string>> = {
 };
 
 const FORWARDED_QUERY = new Set(["symbol", "classifier", "limit", "venue", "interval"]);
+/* Forwarded as given, repeats included (`/v1/candles?indicator=sma:20&indicator=rsi:14`). */
+const REPEATED_QUERY = new Set(["indicator"]);
 const SYMBOLS = /^[A-Za-z0-9,_-]{1,512}$/;
 
 export interface MarketsProxyDeps {
@@ -64,6 +66,7 @@ export async function proxyMarketsRequest(request: Request, pathSegments: string
   const search = new URLSearchParams();
   for (const [name, value] of new URL(request.url).searchParams) {
     if (FORWARDED_QUERY.has(name)) search.set(name, value);
+    else if (REPEATED_QUERY.has(name)) search.append(name, value);
   }
   const query = search.toString();
   let upstream: Response;

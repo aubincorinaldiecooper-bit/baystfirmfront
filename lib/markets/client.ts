@@ -63,8 +63,10 @@ export const fetchCandles = (
   interval: CandleInterval,
   fetchImpl: typeof fetch = fetch,
   signal?: AbortSignal,
+  indicators: readonly string[] = [],
 ) => {
   const query = new URLSearchParams({ venue, symbol, interval, limit: "300" });
+  for (const spec of indicators) query.append("indicator", spec);
   return getMarketsJson<CandleResponse>(`candles?${query}`, fetchImpl, signal);
 };
 

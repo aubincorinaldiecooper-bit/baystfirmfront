@@ -53,6 +53,17 @@ describe("proxyMarketsRequest", () => {
     expect(new Headers(calls[0].init.headers).get("authorization")).toBe("Bearer crypto-key");
   });
 
+  it("forwards every repeated indicator spec on candle requests", async () => {
+    const { fetchImpl, calls } = upstream(() => new Response('{"candles":[]}', { status: 200 }));
+    const request = new Request(
+      "http://localhost:3000/api/markets/candles?venue=okx&symbol=BTC-USDT&interval=1h&indicator=sma:20&indicator=macd:12,26,9",
+    );
+    await proxyMarketsRequest(request, ["candles"], { fetch: fetchImpl, config: CONFIG, session });
+    expect(calls[0].url).toBe(
+      "http://bayst.test/v1/candles?venue=okx&symbol=BTC-USDT&interval=1h&indicator=sma%3A20&indicator=macd%3A12%2C26%2C9",
+    );
+  });
+
   it("refuses unknown routes and non-GET methods without calling upstream", async () => {
     const { fetchImpl, calls } = upstream(() => new Response("{}"));
     const deps = { fetch: fetchImpl, config: CONFIG, session };
