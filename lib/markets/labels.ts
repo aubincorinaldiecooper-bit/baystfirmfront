@@ -7,6 +7,12 @@ export const CLASSIFIER_NAMES: Record<string, string> = {
   short_horizon_momentum: "Short-horizon momentum",
 };
 
+const VENUE_NAMES: Record<string, string> = {
+  binanceus: "Binance.US",
+};
+
+export const venueLabel = (venue: string) => VENUE_NAMES[venue] ?? venue;
+
 const STATE_LABELS: Record<string, { label: string; tone: Tone }> = {
   pegged: { label: "Pegged", tone: "green" },
   peg_watch: { label: "Peg watch", tone: "orange" },

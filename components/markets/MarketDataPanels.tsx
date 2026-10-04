@@ -1,7 +1,7 @@
 "use client";
 
 import { basisBps } from "@/lib/markets/metrics";
-import { formatClock, formatCompact, formatQuote } from "@/lib/markets/labels";
+import { formatClock, formatCompact, formatQuote, venueLabel } from "@/lib/markets/labels";
 import { instrumentKey, type DerivativeState } from "@/lib/markets/state";
 import type { MarketEvent } from "@/lib/markets/types";
 
@@ -40,7 +40,7 @@ function DerivativesPanel({ rows }: { rows: DerivativeRow[] }) {
             return (
               <tr key={row.key} className="border-b border-line last:border-0">
                 <td className="px-4 py-2 font-mono text-ink">{row.symbol}</td>
-                <td className="px-2 py-2 text-ink-2">{row.venue}</td>
+                <td className="px-2 py-2 text-ink-2">{venueLabel(row.venue)}</td>
                 <td className="px-2 py-2 font-mono tabular-nums text-ink-2">
                   {data?.funding_rate == null ? "No funding update received yet" : `${(data.funding_rate * 100).toFixed(4)}%`}
                 </td>
@@ -111,7 +111,7 @@ function LiquidationsPanel({
           {newest.map((event) => (
             <tr key={event.event_id} className="border-b border-line last:border-0">
               <td className="px-4 py-2 font-mono text-ink-3">{formatClock(event.exchange_timestamp) || "—"}</td>
-              <td className="px-2 py-2 text-ink-2">{event.venue}</td>
+              <td className="px-2 py-2 text-ink-2">{venueLabel(event.venue)}</td>
               <td className="px-2 py-2 font-mono text-ink">{event.symbol}</td>
               <td className="px-2 py-2 text-ink-2">{liquidationSide(event)}</td>
               <td className="px-2 py-2 text-right font-mono tabular-nums text-ink-2">{formatCompact(event.size)}</td>

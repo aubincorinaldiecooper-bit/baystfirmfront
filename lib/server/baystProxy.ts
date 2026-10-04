@@ -16,12 +16,13 @@ import { readBaystServerConfig, type BaystServerConfig } from "./baystEnv";
 export const MARKETS_ROUTES: Readonly<Record<string, string>> = {
   health: "health",
   snapshot: "v1/snapshot",
+  candles: "v1/candles",
   classifications: "v1/classifications",
   events: "v1/events",
   "evaluation/gate": "v1/evaluation/gate",
 };
 
-const FORWARDED_QUERY = new Set(["symbol", "classifier", "limit"]);
+const FORWARDED_QUERY = new Set(["symbol", "classifier", "limit", "venue", "interval"]);
 const SYMBOLS = /^[A-Za-z0-9,_-]{1,512}$/;
 
 export interface MarketsProxyDeps {
