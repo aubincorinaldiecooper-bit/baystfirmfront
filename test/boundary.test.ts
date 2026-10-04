@@ -24,7 +24,7 @@ const files = walk(ROOT);
 const read = (file: string) => readFileSync(file, "utf8");
 const rel = (file: string) => relative(ROOT, file);
 
-const SERVER_ONLY_FILES = ["lib/server/env.ts", "lib/server/proxy.ts", "lib/auth/session.ts"];
+const SERVER_ONLY_FILES = ["lib/server/env.ts", "lib/server/proxy.ts", "lib/server/baystEnv.ts", "lib/server/baystProxy.ts", "lib/auth/session.ts"];
 
 describe("proxy boundary", () => {
   it("has no NEXT_PUBLIC_ backend configuration anywhere", () => {
@@ -43,7 +43,7 @@ describe("proxy boundary", () => {
   });
 
   it("client-side modules never touch process.env", () => {
-    const clientDirs = ["lib/api", "lib/analysis", "components", "app/(workspace)", "app/layout.tsx"];
+    const clientDirs = ["lib/api", "lib/analysis", "lib/markets", "components", "app/(workspace)", "app/layout.tsx"];
     const offenders = files.filter((f) => {
       const path = rel(f);
       return clientDirs.some((d) => path === d || path.startsWith(`${d}/`)) && /process\.env\.BAY|process\.env\[/.test(read(f));
