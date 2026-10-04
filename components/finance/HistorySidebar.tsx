@@ -12,6 +12,7 @@ import SidebarNav, { type SidebarRecent } from "@/components/primitives/SidebarN
 import type { UseAnalysisHistoryResult } from "@/lib/api/history";
 import type { AnalysisSummary } from "@/lib/api/types";
 import { statusLabel } from "@/lib/analysis/labels";
+import { watchlistAlertsEnabled } from "@/lib/markets/features";
 import { venueLabel } from "@/lib/markets/labels";
 import { useWatchlist } from "@/lib/markets/useWatchlist";
 
@@ -45,6 +46,7 @@ export default function HistorySidebar({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const watchlist = useWatchlist();
+  const showWatchlist = watchlistAlertsEnabled();
   const activeId = activeAnalysisId(pathname);
   const activeWatchlistId = pathname?.startsWith("/markets") ? searchParams.get("instrument") : null;
   const watchlistRows = watchlist.keys.flatMap((key): SidebarRecent[] => {
@@ -118,13 +120,17 @@ export default function HistorySidebar({
         router.push("/");
       }}
       recents={history.items.map(historyRow)}
-      watchlist={watchlistRows}
-      watchlistEmpty="Star instruments on Markets to see them here"
-      activeWatchlistId={activeWatchlistId}
-      onPickWatchlist={(key) => {
-        onNavigate?.();
-        router.push(`/markets?instrument=${encodeURIComponent(key)}`);
-      }}
+      {...(showWatchlist
+        ? {
+            watchlist: watchlistRows,
+            watchlistEmpty: "Star instruments on Markets to see them here",
+            activeWatchlistId,
+            onPickWatchlist: (key: string) => {
+              onNavigate?.();
+              router.push(`/markets?instrument=${encodeURIComponent(key)}`);
+            },
+          }
+        : {})}
       activeId={activeId}
       onPick={(id) => {
         onNavigate?.();

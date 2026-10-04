@@ -13,6 +13,7 @@ import type { StreamStatus } from "@/lib/markets/client";
 import { formatClock, formatCompact, formatMs, formatQuote, venueLabel } from "@/lib/markets/labels";
 import { spreadBps } from "@/lib/markets/metrics";
 import { classificationsFor, instrumentKey, instrumentRows, type InstrumentRow } from "@/lib/markets/state";
+import { watchlistAlertsEnabled } from "@/lib/markets/features";
 import type { MarketEvent } from "@/lib/markets/types";
 import { useMarkets } from "@/lib/markets/useMarkets";
 import { useWatchlist } from "@/lib/markets/useWatchlist";
@@ -47,6 +48,7 @@ function InstrumentTable({
   rows,
   quotes,
   selected,
+  watchlistEnabled,
   watchlistKeys,
   onToggleWatchlist,
   onSelect,
@@ -54,6 +56,7 @@ function InstrumentTable({
   rows: InstrumentRow[];
   quotes: Record<string, MarketEvent>;
   selected: string | null;
+  watchlistEnabled: boolean;
   watchlistKeys: string[];
   onToggleWatchlist: (key: string) => void;
   onSelect: (key: string) => void;
@@ -64,7 +67,9 @@ function InstrumentTable({
       <table className="w-full min-w-[1120px] text-left text-[12.5px]">
         <thead className="text-[11.5px] uppercase tracking-[0.04em] text-ink-3">
           <tr className="border-b border-line">
-            <th className="px-2 py-2 font-medium"><span className="sr-only">Watchlist</span></th>
+            {watchlistEnabled && (
+              <th className="px-2 py-2 font-medium"><span className="sr-only">Watchlist</span></th>
+            )}
             <th className="px-4 py-2 font-medium">Instrument</th>
             <th className="px-2 py-2 font-medium">Venue</th>
             <th className="px-2 py-2 font-medium">Kind</th>
@@ -91,24 +96,26 @@ function InstrumentTable({
                 aria-selected={row.key === selected}
                 className={`cursor-pointer border-b border-line last:border-0 ${row.key === selected ? "bg-accent-tint" : "hover:bg-hover-2"}`}
               >
-                <td className="px-2 py-2">
-                  <button
-                    type="button"
-                    aria-pressed={watched.has(row.key)}
-                    aria-label={
-                      watched.has(row.key)
-                        ? `Remove ${row.symbol} on ${venueLabel(row.venue)} from watchlist`
-                        : `Add ${row.symbol} on ${venueLabel(row.venue)} to watchlist`
-                    }
-                    className="inline-flex size-7 items-center justify-center rounded text-ink-3 hover:bg-hover-2 hover:text-ink"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onToggleWatchlist(row.key);
-                    }}
-                  >
-                    <Star size={15} aria-hidden fill={watched.has(row.key) ? "currentColor" : "none"} />
-                  </button>
-                </td>
+                {watchlistEnabled && (
+                  <td className="px-2 py-2">
+                    <button
+                      type="button"
+                      aria-pressed={watched.has(row.key)}
+                      aria-label={
+                        watched.has(row.key)
+                          ? `Remove ${row.symbol} on ${venueLabel(row.venue)} from watchlist`
+                          : `Add ${row.symbol} on ${venueLabel(row.venue)} to watchlist`
+                      }
+                      className="inline-flex size-7 items-center justify-center rounded text-ink-3 hover:bg-hover-2 hover:text-ink"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onToggleWatchlist(row.key);
+                      }}
+                    >
+                      <Star size={15} aria-hidden fill={watched.has(row.key) ? "currentColor" : "none"} />
+                    </button>
+                  </td>
+                )}
                 <td className="px-4 py-2 font-mono text-ink">{row.symbol}</td>
                 <td className="px-2 py-2 text-ink-2">{venueLabel(row.venue)}</td>
                 <td className="px-2 py-2 text-ink-2">{row.kind}</td>
@@ -140,6 +147,7 @@ function InstrumentTable({
 }
 
 export default function MarketsView() {
+  const featuresEnabled = watchlistAlertsEnabled();
   const { state, snapshot, snapshotError, gate, gateError, stream, reload } = useMarkets();
   const searchParams = useSearchParams();
   const queryInstrument = searchParams.get("instrument");
@@ -154,8 +162,11 @@ export default function MarketsView() {
   }, [queryInstrument]);
   const rows = useMemo(() => instrumentRows(state), [state]);
   const visibleRows = useMemo(
-    () => (instrumentFilter === "watchlist" ? rows.filter((row) => watchlist.keys.includes(row.key)) : rows),
-    [instrumentFilter, rows, watchlist.keys],
+    () =>
+      featuresEnabled && instrumentFilter === "watchlist"
+        ? rows.filter((row) => watchlist.keys.includes(row.key))
+        : rows,
+    [featuresEnabled, instrumentFilter, rows, watchlist.keys],
   );
   const derivativeRows = useMemo<DerivativeRow[]>(() => {
     const pairs = new Map<string, { venue: string; symbol: string }>();
@@ -234,38 +245,41 @@ export default function MarketsView() {
           </Section>
 
           <Section id="instruments" title="Instruments" count={rows.length}>
-            <div role="group" aria-label="Instrument filter" className="mb-2 flex gap-1">
-              <button
-                type="button"
-                aria-pressed={instrumentFilter === "all"}
-                className="rounded-md px-2.5 py-1 text-[12px] text-ink-2 hover:bg-hover-2 aria-pressed:bg-inset aria-pressed:text-ink"
-                onClick={() => setInstrumentFilter("all")}
-              >
-                All
-              </button>
-              <button
-                type="button"
-                aria-pressed={instrumentFilter === "watchlist"}
-                className="rounded-md px-2.5 py-1 text-[12px] text-ink-2 hover:bg-hover-2 aria-pressed:bg-inset aria-pressed:text-ink"
-                onClick={() => setInstrumentFilter("watchlist")}
-              >
-                Watchlist ({watchlist.keys.length})
-              </button>
-            </div>
+            {featuresEnabled && (
+              <div role="group" aria-label="Instrument filter" className="mb-2 flex gap-1">
+                <button
+                  type="button"
+                  aria-pressed={instrumentFilter === "all"}
+                  className="rounded-md px-2.5 py-1 text-[12px] text-ink-2 hover:bg-hover-2 aria-pressed:bg-inset aria-pressed:text-ink"
+                  onClick={() => setInstrumentFilter("all")}
+                >
+                  All
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={instrumentFilter === "watchlist"}
+                  className="rounded-md px-2.5 py-1 text-[12px] text-ink-2 hover:bg-hover-2 aria-pressed:bg-inset aria-pressed:text-ink"
+                  onClick={() => setInstrumentFilter("watchlist")}
+                >
+                  Watchlist ({watchlist.keys.length})
+                </button>
+              </div>
+            )}
             {visibleRows.length > 0 ? (
               <InstrumentTable
                 rows={visibleRows}
                 quotes={state.quotes}
                 selected={selected}
+                watchlistEnabled={featuresEnabled}
                 watchlistKeys={watchlist.keys}
                 onToggleWatchlist={watchlist.toggle}
                 onSelect={setPicked}
               />
-            ) : instrumentFilter === "watchlist" && watchlist.keys.length === 0 ? (
+            ) : featuresEnabled && instrumentFilter === "watchlist" && watchlist.keys.length === 0 ? (
               <p className="rounded-[10px] bg-surface px-4 py-3 text-[12.5px] text-ink-3 shadow-card">
                 No instruments starred yet. Star a row to keep it here (saved in this browser only).
               </p>
-            ) : instrumentFilter === "watchlist" ? (
+            ) : featuresEnabled && instrumentFilter === "watchlist" ? (
               <p className="rounded-[10px] bg-surface px-4 py-3 text-[12.5px] text-ink-3 shadow-card">
                 No watched instruments have reached the backend yet.
               </p>
@@ -276,7 +290,7 @@ export default function MarketsView() {
             )}
           </Section>
 
-          <AlertsPanel state={state} rows={rows} />
+          {featuresEnabled && <AlertsPanel state={state} rows={rows} />}
 
           <Section id="derivatives" title="Derivatives" count={derivativeRows.length}>
             <DerivativesPanel rows={derivativeRows} />
