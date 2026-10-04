@@ -77,6 +77,17 @@ describe("history sidebar", () => {
     expect(nav.push).toHaveBeenLastCalledWith("/");
   });
 
+  it("navigates to Status and keeps Markets navigation", () => {
+    nav.pathname = "/status";
+    setup(() => jsonResponse(200, { analyses: [], next_cursor: null }));
+    const status = within(sidebar()).getByRole("button", { name: "Status" });
+    expect(status.getAttribute("aria-current")).toBe("page");
+    fireEvent.click(status);
+    expect(nav.push).toHaveBeenCalledWith("/status");
+    fireEvent.click(within(sidebar()).getByRole("button", { name: "Markets" }));
+    expect(nav.push).toHaveBeenLastCalledWith("/markets");
+  });
+
   it("renders an empty state, not placeholders, when there is no history", async () => {
     setup(() => jsonResponse(200, { analyses: [], next_cursor: null }));
     await within(sidebar()).findByText("No analyses yet. Ask a question to start one.");

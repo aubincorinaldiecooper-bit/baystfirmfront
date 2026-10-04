@@ -1,14 +1,11 @@
 "use client";
 
-/* The start page: the question composer and the backend's real capabilities. */
+/* The start page: the question composer. */
 
 import AnalysisComposer from "./AnalysisComposer";
-import BackendStatus from "./BackendStatus";
 import PageHeader from "./PageHeader";
-import { useWorkspace } from "./workspace";
 
 export default function NewAnalysis() {
-  const { capabilities } = useWorkspace();
   return (
     <>
       <PageHeader title="New analysis" />
@@ -21,9 +18,6 @@ export default function NewAnalysis() {
           </p>
           <div className="mt-8">
             <AnalysisComposer />
-          </div>
-          <div className="mt-12">
-            <BackendStatus capabilities={capabilities} />
           </div>
         </div>
       </div>
