@@ -16,7 +16,7 @@ import type { CandleBar, CandleResponse } from "@/lib/markets/types";
 const chartMock = vi.hoisted(() => {
   const series = () => ({ setData: vi.fn(), update: vi.fn(), applyOptions: vi.fn(), createPriceLine: vi.fn() });
   const chart = {
-    addSeries: vi.fn((..._args: unknown[]) => series()),
+    addSeries: vi.fn<(...args: unknown[]) => ReturnType<typeof series>>(() => series()),
     removeSeries: vi.fn(),
     applyOptions: vi.fn(),
     subscribeCrosshairMove: vi.fn(),
