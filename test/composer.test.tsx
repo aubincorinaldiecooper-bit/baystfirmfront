@@ -155,6 +155,11 @@ describe("ambiguous instrument", () => {
 });
 
 describe("profiles from /capabilities", () => {
+  it("keeps backend status off the start page", () => {
+    setup();
+    expect(screen.queryByRole("heading", { name: "Backend" })).toBeNull();
+  });
+
   it("disables Deep with the backend's reason and keeps Fast selected", async () => {
     setup();
     const picker = await screen.findByRole("button", { name: "Analysis profile: Fast" });
