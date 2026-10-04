@@ -12,15 +12,28 @@ export interface MarketEvent {
   base_asset: string;
   quote_asset: string;
   instrument_kind: string;
-  event_type: string;
+  event_type: "trade" | "quote" | "book" | "funding" | "open_interest" | "liquidation" | "chain";
   exchange_timestamp: string;
   received_timestamp: string;
   sequence: number | string | null;
   price: number | null;
   size: number | null;
   side: string;
-  bid: number | null;
-  ask: number | null;
+  bid?: number | null;
+  ask?: number | null;
+  funding_rate?: number | null;
+  next_funding_at?: string | null;
+  open_interest?: number | null;
+  open_interest_value?: number | null;
+  mark_price?: number | null;
+  index_price?: number | null;
+  bid_size?: number | null;
+  ask_size?: number | null;
+  bid_depth_10bps?: number | null;
+  ask_depth_10bps?: number | null;
+  bid_depth_50bps?: number | null;
+  ask_depth_50bps?: number | null;
+  depth_levels?: number | null;
   payload_hash: string;
   metadata: Record<string, unknown>;
 }
@@ -66,6 +79,8 @@ export interface GateMetrics {
   brier_score: number;
   expected_calibration_error: number;
   p95_latency_ms: number;
+  macro_recall?: number | null;
+  label_recall?: Record<string, number>;
 }
 
 export interface EvaluationRun {
@@ -82,5 +97,5 @@ export interface EvaluationGate {
   status: string;
   promotion: string;
   runs: EvaluationRun[];
-  thresholds: Record<string, number>;
+  thresholds: Partial<Record<string, number | null>>;
 }

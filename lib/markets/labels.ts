@@ -40,6 +40,7 @@ const FAILURE_LABELS: Record<string, string> = {
   brier_score_above_threshold: "Brier score too high",
   calibration_error_above_threshold: "Confidence not calibrated",
   latency_above_threshold: "Too slow",
+  macro_recall_below_threshold: "Misses too many moves",
 };
 
 export const failureLabel = (failure: string) => FAILURE_LABELS[failure] ?? failure.replace(/_/g, " ");
@@ -53,6 +54,11 @@ export function formatQuote(value: number | null | undefined): string {
 
 export function formatMs(value: number | null | undefined): string {
   return typeof value === "number" && Number.isFinite(value) ? `${Math.round(value)} ms` : "—";
+}
+
+export function formatCompact(value: number | null | undefined): string {
+  if (typeof value !== "number" || !Number.isFinite(value)) return "—";
+  return value.toLocaleString("en-US", { notation: "compact", maximumFractionDigits: 1 });
 }
 
 /** "16:59:28.254 UTC" from an ISO timestamp, as sent. */
