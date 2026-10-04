@@ -2,8 +2,9 @@
 
 /* Markets page: backend-normalized public data, shadow classifiers and gate state. */
 
-import { useMemo, useState } from "react";
-import { RefreshCw } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { RefreshCw, Star } from "lucide-react";
 import { Button } from "@/components/atoms/Button";
 import { StatusPill } from "@/components/atoms/StatusPill";
 import PageHeader from "@/components/finance/PageHeader";
@@ -14,6 +15,8 @@ import { spreadBps } from "@/lib/markets/metrics";
 import { classificationsFor, instrumentKey, instrumentRows, type InstrumentRow } from "@/lib/markets/state";
 import type { MarketEvent } from "@/lib/markets/types";
 import { useMarkets } from "@/lib/markets/useMarkets";
+import { useWatchlist } from "@/lib/markets/useWatchlist";
+import AlertsPanel from "./AlertsPanel";
 import GatePanel from "./GatePanel";
 import LiveChart from "./LiveChart";
 import { DerivativesPanel, LiquidationsPanel, type DerivativeRow } from "./MarketDataPanels";
@@ -44,18 +47,24 @@ function InstrumentTable({
   rows,
   quotes,
   selected,
+  watchlistKeys,
+  onToggleWatchlist,
   onSelect,
 }: {
   rows: InstrumentRow[];
   quotes: Record<string, MarketEvent>;
   selected: string | null;
+  watchlistKeys: string[];
+  onToggleWatchlist: (key: string) => void;
   onSelect: (key: string) => void;
 }) {
+  const watched = new Set(watchlistKeys);
   return (
     <div className="overflow-x-auto rounded-[10px] bg-surface shadow-card">
       <table className="w-full min-w-[1120px] text-left text-[12.5px]">
         <thead className="text-[11.5px] uppercase tracking-[0.04em] text-ink-3">
           <tr className="border-b border-line">
+            <th className="px-2 py-2 font-medium"><span className="sr-only">Watchlist</span></th>
             <th className="px-4 py-2 font-medium">Instrument</th>
             <th className="px-2 py-2 font-medium">Venue</th>
             <th className="px-2 py-2 font-medium">Kind</th>
@@ -82,6 +91,24 @@ function InstrumentTable({
                 aria-selected={row.key === selected}
                 className={`cursor-pointer border-b border-line last:border-0 ${row.key === selected ? "bg-accent-tint" : "hover:bg-hover-2"}`}
               >
+                <td className="px-2 py-2">
+                  <button
+                    type="button"
+                    aria-pressed={watched.has(row.key)}
+                    aria-label={
+                      watched.has(row.key)
+                        ? `Remove ${row.symbol} on ${venueLabel(row.venue)} from watchlist`
+                        : `Add ${row.symbol} on ${venueLabel(row.venue)} to watchlist`
+                    }
+                    className="inline-flex size-7 items-center justify-center rounded text-ink-3 hover:bg-hover-2 hover:text-ink"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onToggleWatchlist(row.key);
+                    }}
+                  >
+                    <Star size={15} aria-hidden fill={watched.has(row.key) ? "currentColor" : "none"} />
+                  </button>
+                </td>
                 <td className="px-4 py-2 font-mono text-ink">{row.symbol}</td>
                 <td className="px-2 py-2 text-ink-2">{venueLabel(row.venue)}</td>
                 <td className="px-2 py-2 text-ink-2">{row.kind}</td>
@@ -114,8 +141,22 @@ function InstrumentTable({
 
 export default function MarketsView() {
   const { state, snapshot, snapshotError, gate, gateError, stream, reload } = useMarkets();
+  const searchParams = useSearchParams();
+  const queryInstrument = searchParams.get("instrument");
   const [picked, setPicked] = useState<string | null>(null);
+  const previousQueryInstrument = useRef(queryInstrument);
+  const [instrumentFilter, setInstrumentFilter] = useState<"all" | "watchlist">("all");
+  const watchlist = useWatchlist();
+  useEffect(() => {
+    if (previousQueryInstrument.current === queryInstrument) return;
+    previousQueryInstrument.current = queryInstrument;
+    setPicked(null);
+  }, [queryInstrument]);
   const rows = useMemo(() => instrumentRows(state), [state]);
+  const visibleRows = useMemo(
+    () => (instrumentFilter === "watchlist" ? rows.filter((row) => watchlist.keys.includes(row.key)) : rows),
+    [instrumentFilter, rows, watchlist.keys],
+  );
   const derivativeRows = useMemo<DerivativeRow[]>(() => {
     const pairs = new Map<string, { venue: string; symbol: string }>();
     for (const row of rows) if (row.kind === "perpetual") pairs.set(row.key, { venue: row.venue, symbol: row.symbol });
@@ -133,7 +174,8 @@ export default function MarketsView() {
       .map(([key, pair]) => ({ key, ...pair, data: state.derivatives[key] ?? null }))
       .sort((a, b) => a.venue.localeCompare(b.venue) || a.symbol.localeCompare(b.symbol));
   }, [rows, snapshot, state.derivatives]);
-  const selected = picked ?? PREFERRED.find((key) => state.instruments[key]) ?? rows[0]?.key ?? null;
+  const querySelected = queryInstrument && state.instruments[queryInstrument] ? queryInstrument : null;
+  const selected = picked ?? querySelected ?? PREFERRED.find((key) => state.instruments[key]) ?? rows[0]?.key ?? null;
   const selectedRow = selected ? state.instruments[selected] : undefined;
   const pegs = useMemo(() => classificationsFor(state, "stablecoin_peg"), [state]);
   const momentum = useMemo(() => classificationsFor(state, "short_horizon_momentum"), [state]);
@@ -192,14 +234,49 @@ export default function MarketsView() {
           </Section>
 
           <Section id="instruments" title="Instruments" count={rows.length}>
-            {rows.length > 0 ? (
-              <InstrumentTable rows={rows} quotes={state.quotes} selected={selected} onSelect={setPicked} />
+            <div role="group" aria-label="Instrument filter" className="mb-2 flex gap-1">
+              <button
+                type="button"
+                aria-pressed={instrumentFilter === "all"}
+                className="rounded-md px-2.5 py-1 text-[12px] text-ink-2 hover:bg-hover-2 aria-pressed:bg-inset aria-pressed:text-ink"
+                onClick={() => setInstrumentFilter("all")}
+              >
+                All
+              </button>
+              <button
+                type="button"
+                aria-pressed={instrumentFilter === "watchlist"}
+                className="rounded-md px-2.5 py-1 text-[12px] text-ink-2 hover:bg-hover-2 aria-pressed:bg-inset aria-pressed:text-ink"
+                onClick={() => setInstrumentFilter("watchlist")}
+              >
+                Watchlist ({watchlist.keys.length})
+              </button>
+            </div>
+            {visibleRows.length > 0 ? (
+              <InstrumentTable
+                rows={visibleRows}
+                quotes={state.quotes}
+                selected={selected}
+                watchlistKeys={watchlist.keys}
+                onToggleWatchlist={watchlist.toggle}
+                onSelect={setPicked}
+              />
+            ) : instrumentFilter === "watchlist" && watchlist.keys.length === 0 ? (
+              <p className="rounded-[10px] bg-surface px-4 py-3 text-[12.5px] text-ink-3 shadow-card">
+                No instruments starred yet. Star a row to keep it here (saved in this browser only).
+              </p>
+            ) : instrumentFilter === "watchlist" ? (
+              <p className="rounded-[10px] bg-surface px-4 py-3 text-[12.5px] text-ink-3 shadow-card">
+                No watched instruments have reached the backend yet.
+              </p>
             ) : (
               <p className="rounded-[10px] bg-surface px-4 py-3 text-[12.5px] text-ink-3 shadow-card">
                 No trades have reached the backend yet.
               </p>
             )}
           </Section>
+
+          <AlertsPanel state={state} rows={rows} />
 
           <Section id="derivatives" title="Derivatives" count={derivativeRows.length}>
             <DerivativesPanel rows={derivativeRows} />

@@ -33,23 +33,45 @@ export function candleBucketOpenTime(timeMs: number, interval: CandleInterval): 
 
 export function mergeTradeIntoCurrentCandle(
   candles: CandleBar[],
-  tick: Tick | null | undefined,
+  ticks: Tick[],
   interval: CandleInterval,
 ): CandleBar[] {
-  if (!tick || candles.length === 0 || !Number.isFinite(tick.time) || !Number.isFinite(tick.value)) {
-    return candles;
-  }
-  const last = candles[candles.length - 1];
-  const bucketOpenTime = candleBucketOpenTime(tick.time * 1000, interval);
-  if (bucketOpenTime !== last.open_time) return candles;
+  if (candles.length === 0 || ticks.length === 0) return candles;
 
-  return [
-    ...candles.slice(0, -1),
-    {
-      ...last,
-      high: Math.max(last.high, tick.value),
-      low: Math.min(last.low, tick.value),
-      close: tick.value,
-    },
-  ];
+  const fetchedLastOpenTime = candles[candles.length - 1].open_time;
+  const liveTicks = ticks
+    .filter(
+      (tick) =>
+        Number.isFinite(tick.time) &&
+        Number.isFinite(tick.value) &&
+        tick.time * 1000 >= fetchedLastOpenTime,
+    )
+    .sort((a, b) => a.time - b.time);
+  if (liveTicks.length === 0) return candles;
+
+  const merged = [...candles];
+  for (const tick of liveTicks) {
+    const openTime = candleBucketOpenTime(tick.time * 1000, interval);
+    const lastIndex = merged.length - 1;
+    const last = merged[lastIndex];
+    if (openTime < last.open_time) continue;
+    if (openTime === last.open_time) {
+      merged[lastIndex] = {
+        ...last,
+        high: Math.max(last.high, tick.value),
+        low: Math.min(last.low, tick.value),
+        close: tick.value,
+      };
+    } else {
+      merged.push({
+        open_time: openTime,
+        open: tick.value,
+        high: tick.value,
+        low: tick.value,
+        close: tick.value,
+        volume: 0,
+      });
+    }
+  }
+  return merged;
 }

@@ -2,7 +2,8 @@
 
 import { basisBps } from "@/lib/markets/metrics";
 import { formatClock, formatCompact, formatQuote, venueLabel } from "@/lib/markets/labels";
-import { instrumentKey, type DerivativeState } from "@/lib/markets/state";
+import { liquidationNotionalUsd } from "@/lib/markets/notional";
+import type { DerivativeState } from "@/lib/markets/state";
 import type { MarketEvent } from "@/lib/markets/types";
 
 export interface DerivativeRow {
@@ -67,17 +68,6 @@ function liquidationSide(event: MarketEvent): string {
   return typeof position === "string" ? `${event.side} · ${position} position` : event.side;
 }
 
-function notional(event: MarketEvent, derivatives: Record<string, DerivativeState>): number | null {
-  if (typeof event.price !== "number" || typeof event.size !== "number") return null;
-  const metadataMultiplier = event.metadata.contract_multiplier;
-  const multiplier =
-    typeof metadataMultiplier === "number"
-      ? metadataMultiplier
-      : derivatives[instrumentKey(event.venue, event.symbol)]?.contract_multiplier;
-  if (event.venue === "okx" && event.instrument_kind === "perpetual" && multiplier == null) return null;
-  return event.price * event.size * (multiplier ?? 1);
-}
-
 function LiquidationsPanel({
   events,
   derivatives,
@@ -117,7 +107,7 @@ function LiquidationsPanel({
               <td className="px-2 py-2 text-right font-mono tabular-nums text-ink-2">{formatCompact(event.size)}</td>
               <td className="px-2 py-2 text-right font-mono tabular-nums text-ink-2">{formatQuote(event.price)}</td>
               <td className="px-4 py-2 text-right font-mono tabular-nums text-ink-2">
-                {formatCompact(notional(event, derivatives))}
+                {formatCompact(liquidationNotionalUsd(event, derivatives))}
               </td>
             </tr>
           ))}
