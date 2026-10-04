@@ -84,6 +84,10 @@ function MarketHarness({ initialState }: { initialState: MarketsState }) {
     snapshotError: null,
     gate: null,
     gateError: null,
+    trackRecord: null,
+    trackRecordError: null,
+    backtest: null,
+    backtestError: null,
     stream: "live",
     reload: vi.fn(),
   };

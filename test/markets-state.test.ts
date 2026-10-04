@@ -208,6 +208,25 @@ describe("marketsReducer", () => {
     expect(state.snapshotLoaded).toBe(true);
   });
 
+  it("keeps one momentum_regime state per horizon and filters by horizon", () => {
+    const regime = (horizon: number, label: string): Classification => ({
+      ...peg(label, 1),
+      classification_id: `regime-${horizon}`,
+      classifier: "momentum_regime",
+      symbol: "BTC-USD",
+      horizon_seconds: horizon,
+    });
+    const state = marketsReducer(initialMarketsState(), {
+      type: "stream",
+      events: [],
+      classifications: [regime(60, "upward_momentum"), regime(3600, "range_bound"), peg("pegged", 2)],
+    });
+    expect(classificationsFor(state, "momentum_regime").map((item) => item.horizon_seconds)).toHaveLength(2);
+    expect(classificationsFor(state, "momentum_regime", 3600).map((item) => item.label)).toEqual(["range_bound"]);
+    expect(classificationsFor(state, "momentum_regime", 86_400)).toEqual([]);
+    expect(classificationsFor(state, "stablecoin_peg").map((item) => item.label)).toEqual(["pegged"]);
+  });
+
   it("never replaces a classification with an older one and bounds the tick history", () => {
     let state = marketsReducer(initialMarketsState(), { type: "stream", events: [], classifications: [peg("peg_watch", 5), peg("pegged", 3)] });
     expect(classificationsFor(state, "stablecoin_peg")[0].label).toBe("peg_watch");

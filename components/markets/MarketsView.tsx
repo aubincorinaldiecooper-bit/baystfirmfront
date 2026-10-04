@@ -10,7 +10,7 @@ import { StatusPill } from "@/components/atoms/StatusPill";
 import PageHeader from "@/components/finance/PageHeader";
 import { Notice, Section } from "@/components/finance/ui";
 import type { StreamStatus } from "@/lib/markets/client";
-import { formatClock, formatCompact, formatMs, formatQuote, venueLabel } from "@/lib/markets/labels";
+import { formatClock, formatCompact, formatMs, formatQuote, horizonLabel, venueLabel } from "@/lib/markets/labels";
 import { spreadBps } from "@/lib/markets/metrics";
 import { classificationsFor, instrumentKey, instrumentRows, type InstrumentRow } from "@/lib/markets/state";
 import { watchlistAlertsEnabled } from "@/lib/markets/features";
@@ -22,6 +22,7 @@ import GatePanel from "./GatePanel";
 import LiveChart from "./LiveChart";
 import { DerivativesPanel, LiquidationsPanel, type DerivativeRow } from "./MarketDataPanels";
 import SignalBoard from "./SignalBoard";
+import TrackRecordPanel, { MOMENTUM_HORIZONS } from "./TrackRecordPanel";
 
 const STREAM_LABEL: Record<StreamStatus, { label: string; tone: "green" | "orange" | "red" }> = {
   connecting: { label: "Connecting", tone: "orange" },
@@ -148,7 +149,9 @@ function InstrumentTable({
 
 export default function MarketsView() {
   const featuresEnabled = watchlistAlertsEnabled();
-  const { state, snapshot, snapshotError, gate, gateError, stream, reload } = useMarkets();
+  const { state, snapshot, snapshotError, gate, gateError, trackRecord, trackRecordError, backtest, backtestError, stream, reload } =
+    useMarkets();
+  const [horizon, setHorizon] = useState<number>(3600);
   const searchParams = useSearchParams();
   const queryInstrument = searchParams.get("instrument");
   const [picked, setPicked] = useState<string | null>(null);
@@ -190,6 +193,7 @@ export default function MarketsView() {
   const selectedRow = selected ? state.instruments[selected] : undefined;
   const pegs = useMemo(() => classificationsFor(state, "stablecoin_peg"), [state]);
   const momentum = useMemo(() => classificationsFor(state, "short_horizon_momentum"), [state]);
+  const regime = useMemo(() => classificationsFor(state, "momentum_regime", horizon), [state, horizon]);
   const status = STREAM_LABEL[stream];
   const venues = snapshot?.enabled_venues ?? [];
 
@@ -310,6 +314,30 @@ export default function MarketsView() {
 
           <Section id="pegs" title="Stablecoin peg" count={pegs.length}>
             <SignalBoard items={pegs} empty="No peg classification yet: it needs fresh trades from at least two venues." />
+          </Section>
+
+          <Section id="regime" title="Momentum" count={regime.length}>
+            <div role="group" aria-label="Signal horizon" className="mb-2 flex flex-wrap gap-1">
+              {MOMENTUM_HORIZONS.map((seconds) => (
+                <button
+                  key={seconds}
+                  type="button"
+                  aria-pressed={horizon === seconds}
+                  className="rounded-md px-2.5 py-1 font-mono text-[12px] text-ink-2 hover:bg-hover-2 aria-pressed:bg-inset aria-pressed:text-ink"
+                  onClick={() => setHorizon(seconds)}
+                >
+                  {horizonLabel(seconds)}
+                </button>
+              ))}
+            </div>
+            <SignalBoard
+              items={regime}
+              empty={`No ${horizonLabel(horizon)} momentum call recorded since the backend last restarted.`}
+            />
+          </Section>
+
+          <Section id="track-record" title="Track record">
+            <TrackRecordPanel live={trackRecord} liveError={trackRecordError} backtest={backtest} backtestError={backtestError} />
           </Section>
 
           <Section id="momentum" title="Short-horizon momentum" count={momentum.length}>

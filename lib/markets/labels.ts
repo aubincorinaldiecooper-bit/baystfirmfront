@@ -5,6 +5,7 @@ import type { Tone } from "@/lib/analysis/labels";
 export const CLASSIFIER_NAMES: Record<string, string> = {
   stablecoin_peg: "Stablecoin peg",
   short_horizon_momentum: "Short-horizon momentum",
+  momentum_regime: "Momentum",
 };
 
 const VENUE_NAMES: Record<string, string> = {
@@ -20,7 +21,7 @@ const STATE_LABELS: Record<string, { label: string; tone: Tone }> = {
   insufficient_cross_venue_data: { label: "Abstained — fewer than 2 fresh venues", tone: "neutral" },
   upward_momentum: { label: "Upward momentum", tone: "green" },
   downward_momentum: { label: "Downward momentum", tone: "red" },
-  range_bound: { label: "Range-bound", tone: "neutral" },
+  range_bound: { label: "Neutral", tone: "neutral" },
 };
 
 export function stateLabel(label: string): { label: string; tone: Tone } {
@@ -48,6 +49,14 @@ const FAILURE_LABELS: Record<string, string> = {
   latency_above_threshold: "Too slow",
   macro_recall_below_threshold: "Misses too many moves",
 };
+
+/** 60 → "1m", 3600 → "1h", 86400 → "1D"; anything else in seconds, as sent. */
+export function horizonLabel(seconds: number): string {
+  if (seconds >= 86_400 && seconds % 86_400 === 0) return `${seconds / 86_400}D`;
+  if (seconds >= 3600 && seconds % 3600 === 0) return `${seconds / 3600}h`;
+  if (seconds >= 60 && seconds % 60 === 0) return `${seconds / 60}m`;
+  return `${seconds}s`;
+}
 
 export const failureLabel = (failure: string) => FAILURE_LABELS[failure] ?? failure.replace(/_/g, " ");
 

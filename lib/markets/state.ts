@@ -78,7 +78,10 @@ export function initialMarketsState(): MarketsState {
 }
 
 export const instrumentKey = (venue: string, symbol: string) => `${venue}|${symbol}`;
-export const classificationKey = (classifier: string, symbol: string) => `${classifier}|${symbol}`;
+/** Classifiers that publish one state per horizon (backend `MULTI_HORIZON`). */
+export const MULTI_HORIZON_CLASSIFIERS = new Set(["momentum_regime"]);
+export const classificationKey = (classifier: string, symbol: string, horizonSeconds?: number) =>
+  MULTI_HORIZON_CLASSIFIERS.has(classifier) ? `${classifier}|${symbol}|${horizonSeconds}` : `${classifier}|${symbol}`;
 
 function epochMs(value: string): number | null {
   const ms = Date.parse(value);
@@ -202,7 +205,7 @@ function withEvent(state: MarketsState, event: MarketEvent, streamed: boolean): 
 }
 
 function withClassification(state: MarketsState, item: Classification): MarketsState {
-  const key = classificationKey(item.classifier, item.symbol);
+  const key = classificationKey(item.classifier, item.symbol, item.horizon_seconds);
   const current = state.classifications[key];
   if (current && (epochMs(current.observed_at) ?? 0) > (epochMs(item.observed_at) ?? 0)) return state;
   return { ...state, classifications: { ...state.classifications, [key]: item } };
@@ -231,8 +234,8 @@ export function instrumentRows(state: MarketsState): InstrumentRow[] {
   );
 }
 
-export function classificationsFor(state: MarketsState, classifier: string): Classification[] {
+export function classificationsFor(state: MarketsState, classifier: string, horizonSeconds?: number): Classification[] {
   return Object.values(state.classifications)
-    .filter((item) => item.classifier === classifier)
+    .filter((item) => item.classifier === classifier && (horizonSeconds === undefined || item.horizon_seconds === horizonSeconds))
     .sort((a, b) => a.symbol.localeCompare(b.symbol));
 }

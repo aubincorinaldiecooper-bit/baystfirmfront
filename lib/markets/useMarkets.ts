@@ -1,15 +1,19 @@
 "use client";
 
 /**
- * The Markets page lifecycle: read the snapshot and the evaluation gate once,
+ * The Markets page lifecycle: read the snapshot, the evaluation gate and the
+ * live and backtest track records once,
  * then fold the live stream in. Stream records are batched per animation
  * frame so a busy tape renders once per frame, not once per trade.
  */
 
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
-import { fetchGate, fetchSnapshot, MarketsError, openMarketsStream, type StreamStatus } from "./client";
+import { fetchGate, fetchSignalBacktest, fetchSnapshot, fetchTrackRecord, MarketsError, openMarketsStream, type StreamStatus } from "./client";
 import { initialMarketsState, marketsReducer, type MarketsState } from "./state";
-import type { Classification, EvaluationGate, MarketEvent, MarketsSnapshot } from "./types";
+import type { Classification, EvaluationGate, MarketEvent, MarketsSnapshot, SignalBacktest, TrackRecord } from "./types";
+
+/** Live scores cover the same 7 days the backtest replays. */
+export const TRACK_RECORD_WINDOW_HOURS = 168;
 
 export interface UseMarketsResult {
   state: MarketsState;
@@ -17,6 +21,10 @@ export interface UseMarketsResult {
   snapshotError: MarketsError | null;
   gate: EvaluationGate | null;
   gateError: MarketsError | null;
+  trackRecord: TrackRecord | null;
+  trackRecordError: MarketsError | null;
+  backtest: SignalBacktest | null;
+  backtestError: MarketsError | null;
   stream: StreamStatus;
   reload: () => void;
 }
@@ -31,6 +39,10 @@ export function useMarkets(): UseMarketsResult {
   const [snapshotError, setSnapshotError] = useState<MarketsError | null>(null);
   const [gate, setGate] = useState<EvaluationGate | null>(null);
   const [gateError, setGateError] = useState<MarketsError | null>(null);
+  const [trackRecord, setTrackRecord] = useState<TrackRecord | null>(null);
+  const [trackRecordError, setTrackRecordError] = useState<MarketsError | null>(null);
+  const [backtest, setBacktest] = useState<SignalBacktest | null>(null);
+  const [backtestError, setBacktestError] = useState<MarketsError | null>(null);
   const [stream, setStream] = useState<StreamStatus>("connecting");
   const [generation, setGeneration] = useState(0);
   const pending = useRef<{ events: MarketEvent[]; classifications: Classification[] }>({ events: [], classifications: [] });
@@ -42,6 +54,8 @@ export function useMarkets(): UseMarketsResult {
     const controller = new AbortController();
     setSnapshotError(null);
     setGateError(null);
+    setTrackRecordError(null);
+    setBacktestError(null);
     fetchSnapshot(undefined, controller.signal)
       .then((value) => {
         setSnapshot(value);
@@ -54,6 +68,16 @@ export function useMarkets(): UseMarketsResult {
       .then(setGate)
       .catch((cause) => {
         if (!controller.signal.aborted) setGateError(asMarketsError(cause));
+      });
+    fetchTrackRecord(TRACK_RECORD_WINDOW_HOURS, undefined, controller.signal)
+      .then(setTrackRecord)
+      .catch((cause) => {
+        if (!controller.signal.aborted) setTrackRecordError(asMarketsError(cause));
+      });
+    fetchSignalBacktest(undefined, controller.signal)
+      .then(setBacktest)
+      .catch((cause) => {
+        if (!controller.signal.aborted) setBacktestError(asMarketsError(cause));
       });
 
     const flush = () => {
@@ -84,5 +108,5 @@ export function useMarkets(): UseMarketsResult {
     };
   }, [generation]);
 
-  return { state, snapshot, snapshotError, gate, gateError, stream, reload };
+  return { state, snapshot, snapshotError, gate, gateError, trackRecord, trackRecordError, backtest, backtestError, stream, reload };
 }
