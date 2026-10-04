@@ -5,7 +5,7 @@
  * and the shadow / calibration status. */
 
 import { Badge } from "@/components/finance/ui";
-import { formatClock, formatMs, metricLabel, stateLabel } from "@/lib/markets/labels";
+import { formatClock, formatMs, horizonLabel, metricLabel, stateLabel } from "@/lib/markets/labels";
 import type { Classification, Evidence } from "@/lib/markets/types";
 
 function evidenceText(item: Evidence): string {
@@ -49,7 +49,7 @@ export default function SignalBoard({ items, empty }: { items: Classification[];
                 <td className="px-2 py-2.5 font-mono tabular-nums text-ink-2">
                   {item.abstained ? "Abstained" : `${(item.probability * 100).toFixed(1)}%`}
                 </td>
-                <td className="px-2 py-2.5 tabular-nums text-ink-2">{item.horizon_seconds}s</td>
+                <td className="px-2 py-2.5 tabular-nums text-ink-2">{horizonLabel(item.horizon_seconds)}</td>
                 <td className="px-2 py-2.5 text-ink-2">
                   <ul className="space-y-0.5">
                     {item.evidence.map((evidence) => (

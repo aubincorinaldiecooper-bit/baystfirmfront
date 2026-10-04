@@ -140,3 +140,42 @@ export interface EvaluationGate {
   runs: EvaluationRun[];
   thresholds: Partial<Record<string, number | null>>;
 }
+
+/** One (classifier, horizon) row of `/v1/track-record` and `/v1/track-record/backtest`. */
+export interface TrackRecordGroup {
+  classifier: string;
+  horizon_seconds: number;
+  classifier_version: string | null;
+  shadow: boolean;
+  calibration_status: string | null;
+  predictions: number;
+  abstained: number;
+  scored: number;
+  unmatched: number;
+  /** Calls whose horizon has not passed yet. */
+  pending: number;
+  hits: number;
+  hit_rate: number | null;
+  hit_rate_ci95: [number, number] | null;
+  /** How often the outcome was the classifier's normal state ("Neutral" for momentum). */
+  baseline_hit_rate: number | null;
+  label_recall: Record<string, number>;
+}
+
+export interface TrackRecord {
+  computed_at: string;
+  window_hours: number;
+  window_start: string;
+  groups: TrackRecordGroup[];
+  note: string;
+}
+
+export interface SignalBacktest {
+  status: "ready" | "computing";
+  computed_at: string | null;
+  span_start: string | null;
+  span_end: string | null;
+  sources: { symbol: string; venue: string; bars: number }[];
+  groups: TrackRecordGroup[];
+  note: string;
+}

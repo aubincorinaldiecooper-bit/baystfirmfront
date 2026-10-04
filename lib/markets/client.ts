@@ -10,6 +10,8 @@ import type {
   EvaluationGate,
   MarketEvent,
   MarketsSnapshot,
+  SignalBacktest,
+  TrackRecord,
 } from "./types";
 
 export const MARKETS_API_BASE = "/api/markets";
@@ -56,6 +58,12 @@ export const fetchSnapshot = (fetchImpl?: typeof fetch, signal?: AbortSignal) =>
 
 export const fetchGate = (fetchImpl?: typeof fetch, signal?: AbortSignal) =>
   getMarketsJson<EvaluationGate>("evaluation/gate", fetchImpl, signal);
+
+export const fetchTrackRecord = (windowHours: number, fetchImpl?: typeof fetch, signal?: AbortSignal) =>
+  getMarketsJson<TrackRecord>(`track-record?window_hours=${windowHours}`, fetchImpl, signal);
+
+export const fetchSignalBacktest = (fetchImpl?: typeof fetch, signal?: AbortSignal) =>
+  getMarketsJson<SignalBacktest>("track-record/backtest", fetchImpl, signal);
 
 export const fetchCandles = (
   venue: string,

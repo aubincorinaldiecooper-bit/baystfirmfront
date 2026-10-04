@@ -20,9 +20,11 @@ export const MARKETS_ROUTES: Readonly<Record<string, string>> = {
   classifications: "v1/classifications",
   events: "v1/events",
   "evaluation/gate": "v1/evaluation/gate",
+  "track-record": "v1/track-record",
+  "track-record/backtest": "v1/track-record/backtest",
 };
 
-const FORWARDED_QUERY = new Set(["symbol", "classifier", "limit", "venue", "interval"]);
+const FORWARDED_QUERY = new Set(["symbol", "classifier", "limit", "venue", "interval", "window_hours"]);
 /* Forwarded as given, repeats included (`/v1/candles?indicator=sma:20&indicator=rsi:14`). */
 const REPEATED_QUERY = new Set(["indicator"]);
 const SYMBOLS = /^[A-Za-z0-9,_-]{1,512}$/;
