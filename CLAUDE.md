@@ -2,13 +2,18 @@
 
 ## Data rules
 
-- Data comes only from the backend, which uses web search results only. Never add a data source, API or provider the user hasn't approved.
-- The charts (price history, quarterly figures) and key stats are core features: they show the numbers the backend retrieved through web search, with the page each came from. An empty chart states that web search found no page with that data. Never present it as switched off.
+- Company-research data comes only from the backend's web-search results. Never add a data source, API or provider the user hasn't approved.
+- Company-research charts (price history, quarterly figures) and key stats show only values the backend retrieved through web search, with the page each came from. An empty chart states that web search found no page with that data. Never present it as switched off.
 - Everything the UI shows comes from recorded backend events or result fields: no fake data, no simulated progress, no timers driving state.
 - `BAY_API_KEY` stays on the server (the `/api/bay` proxy); nothing client-side reads it.
-- Owner-approved second source: the Markets page (`/markets`) reads only the Baystfirm crypto
-  backend (normalized public exchange streams) through the server-side `/api/markets` proxy;
-  `BAYST_API_KEY` stays on the server too. The analysis pages stay web-search-only.
+- Owner-approved market source: Home (`/`), crypto detail (`/crypto/*`), and Solana token pages
+  (`/tokens/*`) read only Baystfirm through the server-side `/api/markets` proxy; `BAYST_API_KEY`
+  stays on the server. Crypto charts use backend exchange candles; token facts and token candles
+  use only the backend's Solana endpoints. Stocks never show a live price. The legacy `/markets`
+  and `/tokens` routes redirect into the workspace. Analysis pages remain web-search-only.
+- This is an intelligence-only product, not a wallet, trading, or custody product. Never add an
+  overall safe/unsafe token verdict; describe sourced facts and any separately labelled second
+  opinion without blending them.
 
 ## How changes ship (owner's rule, not negotiable)
 

@@ -2,7 +2,9 @@
 
 import type { ReactNode } from "react";
 import { Menu } from "lucide-react";
+import Link from "next/link";
 import { ThemeToggle } from "@/components/site/ThemeToggle";
+import HeaderSearch from "./HeaderSearch";
 import { useWorkspace } from "./workspace";
 
 /* The page pane's top bar: the history toggle on narrow screens, a title and
@@ -19,8 +21,12 @@ export default function PageHeader({ title, actions }: { title: ReactNode; actio
       >
         <Menu size={18} aria-hidden />
       </button>
-      <div className="min-w-0 flex-1 truncate text-[13px] font-semibold text-ink">{title}</div>
+      <div className="hidden max-w-[220px] min-w-0 shrink-0 truncate text-[13px] font-semibold text-ink lg:block">{title}</div>
+      <HeaderSearch />
       {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+      <Link href="/status" className="shrink-0 rounded-[8px] px-2 py-1.5 text-[12.5px] font-medium text-ink-2 hover:bg-hover-2 hover:text-ink">
+        Status
+      </Link>
       <ThemeToggle />
     </header>
   );

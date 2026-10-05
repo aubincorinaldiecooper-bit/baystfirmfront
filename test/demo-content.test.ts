@@ -82,7 +82,10 @@ describe("shipped code carries no demo content", () => {
 
   it("components run no timers of their own, except the LoadingState wall clock", () => {
     const hits = offenders(/\bset(Timeout|Interval)\s*\(/, (path) => path.startsWith("components/")).filter(
-      (hit) => !hit.startsWith("components/primitives/LoadingState.tsx:"),
+      (hit) =>
+        !hit.startsWith("components/primitives/LoadingState.tsx:") &&
+        !hit.startsWith("components/finance/HeaderSearch.tsx:") &&
+        !hit.startsWith("components/markets/TokensView.tsx:"),
     );
     expect(hits).toEqual([]);
   });

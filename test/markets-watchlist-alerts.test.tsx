@@ -1,28 +1,29 @@
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import CryptoAssetView from "@/components/markets/CryptoAssetView";
+import MarketsProvider, { useMarketsContext as useProviderMarkets } from "@/components/markets/MarketsProvider";
 import HistorySidebar from "@/components/finance/HistorySidebar";
+import { WorkspaceContext, type WorkspaceValue } from "@/components/finance/workspace";
 import type { UseAnalysisHistoryResult } from "@/lib/api/history";
-import MarketsView from "@/components/markets/MarketsView";
-import { useMarkets, type UseMarketsResult } from "@/lib/markets/useMarkets";
+import { initialHistoryState } from "@/lib/api/history";
+import type { UseCapabilitiesResult } from "@/lib/api/capabilities";
 import { initialMarketsState, marketsReducer, type MarketsState } from "@/lib/markets/state";
 import type { MarketEvent, MarketsSnapshot } from "@/lib/markets/types";
-import { initialHistoryState } from "@/lib/api/history";
+import type { UseMarketsResult } from "@/lib/markets/useMarkets";
 
-const navigation = vi.hoisted(() => ({ search: "", pathname: "/markets", push: vi.fn() }));
+const navigation = vi.hoisted(() => ({ search: "", pathname: "/crypto/BTC", push: vi.fn() }));
 vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(navigation.search),
   usePathname: () => navigation.pathname,
   useRouter: () => ({ push: navigation.push }),
 }));
-vi.mock("@/lib/markets/useMarkets", () => ({ useMarkets: vi.fn() }));
-vi.mock("@/components/markets/LiveChart", () => ({ default: () => <div data-testid="live-chart" /> }));
 vi.mock("@/components/finance/PageHeader", () => ({
   default: ({ title }: { title: string }) => <header>{title}</header>,
 }));
+vi.mock("@/components/markets/LiveChart", () => ({ default: () => <div data-testid="live-chart" /> }));
 
-const mockUseMarkets = vi.mocked(useMarkets);
 const emptyHistory: UseAnalysisHistoryResult = {
   ...initialHistoryState,
   loadMore: vi.fn(),
@@ -48,7 +49,7 @@ function trade(venue: string, symbol: string, price: number, second: number, eve
     symbol,
     native_symbol: symbol,
     base_asset: symbol.split("-")[0],
-    quote_asset: symbol.split("-")[1],
+    quote_asset: symbol.split("-")[1] ?? "",
     instrument_kind: "spot",
     event_type: "trade",
     exchange_timestamp: at,
@@ -71,13 +72,39 @@ function snapshotState(events: MarketEvent[]): MarketsState {
   });
 }
 
-let setMarketState: Dispatch<SetStateAction<MarketsState>> | null = null;
+let setMarketState: ((update: (state: MarketsState) => MarketsState) => void) | null = null;
 
-function MarketHarness({ initialState }: { initialState: MarketsState }) {
+function WorkspaceBridge({ history, children }: { history: UseAnalysisHistoryResult; children: ReactNode }) {
+  const markets = useProviderMarkets();
+  const workspace: WorkspaceValue = {
+    history,
+    capabilities: { status: "loading", capabilities: null, error: null, reload: vi.fn() } satisfies UseCapabilitiesResult,
+    markets,
+    searchQuery: "",
+    setSearchQuery: vi.fn(),
+    focusSearch: vi.fn(),
+    searchInputRef: { current: null } as WorkspaceValue["searchInputRef"],
+    openSidebar: vi.fn(),
+  };
+  return <WorkspaceContext.Provider value={workspace}>{children}</WorkspaceContext.Provider>;
+}
+
+function MarketHarness({
+  initialState,
+  children,
+  history = emptyHistory,
+}: {
+  initialState: MarketsState;
+  children: ReactNode;
+  history?: UseAnalysisHistoryResult;
+}) {
   const [state, setState] = useState(initialState);
   useEffect(() => {
     setMarketState = setState;
-  }, [setState]);
+    return () => {
+      setMarketState = null;
+    };
+  }, []);
   const result: UseMarketsResult = {
     state,
     snapshot,
@@ -91,8 +118,16 @@ function MarketHarness({ initialState }: { initialState: MarketsState }) {
     stream: "live",
     reload: vi.fn(),
   };
-  mockUseMarkets.mockReturnValue(result);
-  return <MarketsView />;
+  return (
+    <MarketsProvider value={result}>
+      <WorkspaceBridge history={history}>{children}</WorkspaceBridge>
+    </MarketsProvider>
+  );
+}
+
+function asset() {
+  const instrumentParam = new URLSearchParams(navigation.search).get("instrument") ?? undefined;
+  return <CryptoAssetView base="BTC" instrumentParam={instrumentParam} />;
 }
 
 afterEach(() => {
@@ -104,95 +139,112 @@ beforeEach(() => {
   vi.stubEnv("NEXT_PUBLIC_WATCHLIST_ALERTS", "true");
   localStorage.clear();
   navigation.search = "";
-  navigation.pathname = "/markets";
+  navigation.pathname = "/crypto/BTC";
   navigation.push.mockReset();
   setMarketState = null;
-  mockUseMarkets.mockReset();
 });
 
-describe("MarketsView browser-only watchlist and alerts", () => {
-  it("persists a star without selecting its row and filters to watched instruments", () => {
+describe("CryptoAssetView browser-only watchlist and alerts", () => {
+  it("persists a star for the selected instrument", () => {
+    render(
+      <MarketHarness
+        initialState={snapshotState([
+          trade("coinbase", "BTC-USD", 100, 1),
+          trade("kraken", "BTC-USD", 99, 1),
+        ])}
+      >
+        {asset()}
+      </MarketHarness>,
+    );
+    const section = screen.getByRole("region", { name: /Venues/ });
+    const krakenRow = within(section).getByRole("row", { name: /kraken/ });
+    expect(within(section).getByRole("row", { name: /coinbase/ }).getAttribute("aria-selected")).toBe("true");
+    expect(krakenRow.getAttribute("aria-selected")).toBe("false");
+
+    fireEvent.click(screen.getByRole("button", { name: "kraken · BTC-USD" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add BTC-USD on kraken to watchlist" }));
+    expect(screen.getByRole("button", { name: "Remove BTC-USD on kraken from watchlist" }).getAttribute("aria-pressed")).toBe("true");
+    expect(localStorage.getItem("baystfirm.markets.watchlist.v1")).toBe(JSON.stringify(["kraken|BTC-USD"]));
+    expect(krakenRow.getAttribute("aria-selected")).toBe("true");
+  });
+
+  it("honors the instrument query and still allows choosing another venue", () => {
+    navigation.search = "?instrument=kraken%7CBTC-USD";
+    render(
+      <MarketHarness
+        initialState={snapshotState([
+          trade("coinbase", "BTC-USD", 100, 1),
+          trade("kraken", "BTC-USD", 99, 1),
+        ])}
+      >
+        {asset()}
+      </MarketHarness>,
+    );
+    const section = screen.getByRole("region", { name: /Venues/ });
+    expect(within(section).getByRole("row", { name: /kraken/ }).getAttribute("aria-selected")).toBe("true");
+    fireEvent.click(within(section).getByRole("row", { name: /coinbase/ }));
+    expect(within(section).getByRole("row", { name: /coinbase/ }).getAttribute("aria-selected")).toBe("true");
+  });
+
+  it("filters venues to the selected base and switches market tabs", () => {
     render(
       <MarketHarness
         initialState={snapshotState([
           trade("coinbase", "BTC-USD", 100, 1),
           trade("kraken", "ETH-USD", 20, 1),
         ])}
-      />,
+      >
+        {asset()}
+      </MarketHarness>,
     );
-    const section = screen.getByRole("region", { name: /Instruments/ });
-    const ethRow = within(section).getByRole("row", { name: /ETH-USD/ });
-    expect(ethRow.getAttribute("aria-selected")).toBe("false");
-
-    fireEvent.click(screen.getByRole("button", { name: "Add ETH-USD on kraken to watchlist" }));
-    expect(screen.getByRole("button", { name: "Remove ETH-USD on kraken from watchlist" }).getAttribute("aria-pressed")).toBe("true");
-    expect(localStorage.getItem("baystfirm.markets.watchlist.v1")).toBe(JSON.stringify(["kraken|ETH-USD"]));
-    expect(within(section).getByRole("row", { name: /ETH-USD/ }).getAttribute("aria-selected")).toBe("false");
-
-    fireEvent.click(screen.getByRole("button", { name: "Watchlist (1)" }));
-    const filteredTable = within(section).getByRole("table");
-    expect(within(filteredTable).getByRole("row", { name: /ETH-USD/ })).toBeTruthy();
-    expect(within(filteredTable).queryByRole("row", { name: /BTC-USD/ })).toBeNull();
+    const section = screen.getByRole("region", { name: /Venues/ });
+    expect(within(section).getByRole("row", { name: /BTC-USD/ })).toBeTruthy();
+    expect(within(section).queryByRole("row", { name: /ETH-USD/ })).toBeNull();
+    fireEvent.click(screen.getByRole("tab", { name: "Derivatives" }));
+    expect(screen.getByRole("tab", { name: "Derivatives" }).getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByRole("tabpanel").textContent).toContain("Derivatives");
   });
 
-  it("shows the exact empty-watchlist message", () => {
-    render(<MarketHarness initialState={snapshotState([trade("coinbase", "BTC-USD", 100, 1)])} />);
-    fireEvent.click(screen.getByRole("button", { name: "Watchlist (0)" }));
-    expect(
-      screen.getByText("No instruments starred yet. Star a row to keep it here (saved in this browser only)."),
-    ).toBeTruthy();
-  });
-
-  it("preselects the requested instrument and still allows selecting another row", () => {
-    navigation.search = "?instrument=kraken%7CETH-USD";
+  it("explains when a base is absent from loaded exchange feeds", () => {
     render(
-      <MarketHarness
-        initialState={snapshotState([
-          trade("coinbase", "BTC-USD", 100, 1),
-          trade("kraken", "ETH-USD", 20, 1),
-        ])}
-      />,
+      <MarketHarness initialState={snapshotState([trade("coinbase", "BTC-USD", 100, 1)])}>
+        <CryptoAssetView base="UNKNOWN" />
+      </MarketHarness>,
     );
-    const section = screen.getByRole("region", { name: /Instruments/ });
-    expect(within(section).getByRole("row", { name: /ETH-USD/ }).getAttribute("aria-selected")).toBe("true");
-    expect(within(section).getByRole("row", { name: /BTC-USD/ }).getAttribute("aria-selected")).toBe("false");
-
-    fireEvent.click(within(section).getByRole("row", { name: /BTC-USD/ }));
-    expect(within(section).getByRole("row", { name: /BTC-USD/ }).getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByText("UNKNOWN isn’t on our exchange feeds yet.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Search for UNKNOWN" })).toBeTruthy();
   });
 
-  it("lists local watchlist items in the sidebar and navigates with the encoded key", async () => {
-    const key = "binanceus|BTC-USDT";
-    localStorage.setItem("baystfirm.markets.watchlist.v1", JSON.stringify([key]));
-    navigation.search = `?instrument=${encodeURIComponent(key)}`;
+  it("navigates from the sidebar watchlist to the matching crypto detail", () => {
+    localStorage.setItem("baystfirm.markets.watchlist.v1", JSON.stringify(["coinbase|BTC-USD"]));
+    navigation.search = `?instrument=${encodeURIComponent("coinbase|BTC-USD")}`;
     const onNavigate = vi.fn();
-    render(<HistorySidebar history={emptyHistory} onNavigate={onNavigate} />);
-
-    const item = await screen.findByRole("button", { name: "BTC-USDT · Binance.US" });
-    expect(item.getAttribute("aria-current")).toBe("true");
-    fireEvent.click(item);
-    expect(navigation.push).toHaveBeenCalledWith("/markets?instrument=binanceus%7CBTC-USDT");
+    render(
+      <MarketHarness initialState={snapshotState([trade("coinbase", "BTC-USD", 100, 1)])}>
+        <HistorySidebar history={emptyHistory} onNavigate={onNavigate} />
+      </MarketHarness>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "BTC-USD · coinbase" }));
+    expect(navigation.push).toHaveBeenCalledWith("/crypto/BTC?instrument=coinbase%7CBTC-USD");
     expect(onNavigate).toHaveBeenCalledOnce();
-  });
-
-  it("shows the watchlist empty state in the sidebar", () => {
-    render(<HistorySidebar history={emptyHistory} />);
-    expect(screen.getByText("Star instruments on Markets to see them here")).toBeTruthy();
   });
 
   it("updates the sidebar watchlist immediately when starring an instrument", async () => {
     render(
-      <>
-        <MarketHarness initialState={snapshotState([trade("coinbase", "BTC-USD", 100, 1)])} />
-        <HistorySidebar history={emptyHistory} />
-      </>,
+      <MarketHarness initialState={snapshotState([trade("coinbase", "BTC-USD", 100, 1)])}>
+        <>
+          {asset()}
+          <HistorySidebar history={emptyHistory} />
+        </>
+      </MarketHarness>,
     );
     fireEvent.click(screen.getByRole("button", { name: "Add BTC-USD on coinbase to watchlist" }));
     expect(await screen.findByRole("button", { name: "BTC-USD · coinbase" })).toBeTruthy();
   });
 
   it("adds a price rule and shows its firing after streamed prices cross the threshold", async () => {
-    render(<MarketHarness initialState={snapshotState([trade("coinbase", "BTC-USD", 90, 1)])} />);
+    render(<MarketHarness initialState={snapshotState([trade("coinbase", "BTC-USD", 90, 1)])}>{asset()}</MarketHarness>);
+    fireEvent.click(screen.getByRole("tab", { name: "Alerts" }));
     fireEvent.change(screen.getByLabelText("Threshold"), { target: { value: "100" } });
     fireEvent.click(screen.getByRole("button", { name: "Add alert" }));
     expect(screen.getByText("Watching")).toBeTruthy();
@@ -211,32 +263,22 @@ describe("MarketsView browser-only watchlist and alerts", () => {
     expect(screen.getByText(/Observed 101\.000 · Source price-cross-event/)).toBeTruthy();
   });
 
-  it("hides watchlist and alerts UI when the feature flag is unset without disabling selection", () => {
+  it("hides watchlist and alerts controls when the feature flag is off", () => {
     vi.stubEnv("NEXT_PUBLIC_WATCHLIST_ALERTS", undefined);
-    navigation.search = "?instrument=kraken%7CETH-USD";
-    render(
-      <MarketHarness
-        initialState={snapshotState([
-          trade("coinbase", "BTC-USD", 100, 1),
-          trade("kraken", "ETH-USD", 20, 1),
-        ])}
-      />,
-    );
-
-    const section = screen.getByRole("region", { name: /Instruments/ });
-    expect(within(section).getByRole("row", { name: /ETH-USD/ }).getAttribute("aria-selected")).toBe("true");
-    expect(within(section).queryByRole("group", { name: "Instrument filter" })).toBeNull();
+    render(<MarketHarness initialState={snapshotState([trade("coinbase", "BTC-USD", 100, 1)])}>{asset()}</MarketHarness>);
+    const section = screen.getByRole("region", { name: /Venues/ });
     expect(within(section).queryByRole("button", { name: /watchlist/i })).toBeNull();
-    expect(within(section).queryByText("Watchlist")).toBeNull();
-    expect(screen.queryByRole("region", { name: "Alerts" })).toBeNull();
+    expect(screen.queryByRole("tab", { name: "Alerts" })).toBeNull();
   });
 
-  it("does not render the sidebar watchlist when the feature flag is unset", () => {
+  it("keeps sidebar watchlist rows hidden when the feature flag is off", () => {
     vi.stubEnv("NEXT_PUBLIC_WATCHLIST_ALERTS", undefined);
     localStorage.setItem("baystfirm.markets.watchlist.v1", JSON.stringify(["coinbase|BTC-USD"]));
-    render(<HistorySidebar history={emptyHistory} />);
-
+    render(
+      <MarketHarness initialState={snapshotState([trade("coinbase", "BTC-USD", 100, 1)])}>
+        <HistorySidebar history={emptyHistory} />
+      </MarketHarness>,
+    );
     expect(screen.queryByRole("button", { name: "BTC-USD · coinbase" })).toBeNull();
-    expect(screen.queryByText("Star instruments on Markets to see them here")).toBeNull();
   });
 });

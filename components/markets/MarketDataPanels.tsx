@@ -13,7 +13,7 @@ export interface DerivativeRow {
   data: DerivativeState | null;
 }
 
-function DerivativesPanel({ rows }: { rows: DerivativeRow[] }) {
+export function DerivativesPanel({ rows }: { rows: DerivativeRow[] }) {
   if (rows.length === 0) {
     return <p className="rounded-[10px] bg-surface px-4 py-3 text-[12.5px] text-ink-3 shadow-card">No funding update received yet</p>;
   }
@@ -68,7 +68,7 @@ function liquidationSide(event: MarketEvent): string {
   return typeof position === "string" ? `${event.side} · ${position} position` : event.side;
 }
 
-function LiquidationsPanel({
+export function LiquidationsPanel({
   events,
   derivatives,
 }: {
@@ -116,5 +116,3 @@ function LiquidationsPanel({
     </div>
   );
 }
-
-export { DerivativesPanel, LiquidationsPanel };

@@ -7,11 +7,12 @@
  */
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import CandleChartPanel from "@/components/markets/CandleChartPanel";
 import LiveChart from "@/components/markets/LiveChart";
 import { chartPanes, continuesHistory } from "@/components/markets/TradingChart";
-import { fetchCandles } from "@/lib/markets/client";
+import { fetchCandles, fetchTokenCandles } from "@/lib/markets/client";
 import { chartLines, indicatorPoints } from "@/lib/markets/indicators";
-import type { CandleBar, CandleResponse } from "@/lib/markets/types";
+import { SOLANA_CANDLE_INTERVALS, type CandleBar, type CandleInterval, type CandleResponse } from "@/lib/markets/types";
 
 const chartMock = vi.hoisted(() => {
   const series = () => ({ setData: vi.fn(), update: vi.fn(), applyOptions: vi.fn(), createPriceLine: vi.fn() });
@@ -110,6 +111,98 @@ describe("fetchCandles", () => {
     await fetchCandles("coinbase", "BTC-USD", "1h", fetchImpl as unknown as typeof fetch, undefined, ["sma:20", "rsi:14"]);
     const url = String((fetchImpl.mock.calls[0] as unknown[])[0]);
     expect(url).toBe("/api/markets/candles?venue=coinbase&symbol=BTC-USD&interval=1h&limit=300&indicator=sma%3A20&indicator=rsi%3A14");
+  });
+
+  it("requests token candles with their interval and repeated backend indicators", async () => {
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify(response({ venue: "geckoterminal", interval: "1h" })), { status: 200 }));
+    await fetchTokenCandles("DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263", "1h", fetchImpl as unknown as typeof fetch, undefined, [
+      "sma:20",
+      "rsi:14",
+    ]);
+    const url = String((fetchImpl.mock.calls[0] as unknown[])[0]);
+    expect(url).toBe(
+      "/api/markets/solana/tokens/DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263/candles?interval=1h&limit=300&indicator=sma%3A20&indicator=rsi%3A14",
+    );
+  });
+});
+
+describe("shared token candlestick panel", () => {
+  it("uses token intervals, forwards interval changes, and retains GeckoTerminal attribution", async () => {
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
+    const loadCandles = vi.fn(async (interval: CandleInterval) =>
+      response({
+        venue: "geckoterminal",
+        symbol: "Bonk",
+        interval,
+        source_url_template: "https://www.geckoterminal.com/solana/pools/{pool}",
+      }),
+    );
+    render(
+      <CandleChartPanel
+        title="BONK in USD"
+        venue="geckoterminal"
+        symbol="BONK"
+        venueName="GeckoTerminal"
+        loadCandles={loadCandles}
+        intervals={SOLANA_CANDLE_INTERVALS}
+        initialInterval="1h"
+        showLastPrice={false}
+        attribution={() => <p>GeckoTerminal pool chart · USD</p>}
+      />,
+    );
+    await waitFor(() => expect(loadCandles).toHaveBeenCalledTimes(1));
+    expect(loadCandles.mock.calls[0][0]).toBe("1h");
+    expect(screen.getAllByRole("group", { name: "Candle interval" })[0].querySelectorAll("button")).toHaveLength(6);
+    fireEvent.click(screen.getByRole("button", { name: "15m" }));
+    await waitFor(() => expect(loadCandles).toHaveBeenCalledTimes(2));
+    expect(loadCandles.mock.calls[1][0]).toBe("15m");
+    expect(await screen.findByText("GeckoTerminal pool chart · USD")).toBeTruthy();
+  });
+
+  it("shows a stale-cache notice for cached GeckoTerminal candles", async () => {
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
+    const loadCandles = vi.fn(async () =>
+      response({
+        venue: "geckoterminal",
+        symbol: "BONK",
+        stale: true,
+        error: "upstream unavailable",
+      }),
+    );
+    render(
+      <CandleChartPanel
+        title="BONK in USD"
+        venue="geckoterminal"
+        symbol="BONK"
+        loadCandles={loadCandles}
+        intervals={SOLANA_CANDLE_INTERVALS}
+        initialInterval="1h"
+        staleMessage={() => "GeckoTerminal could not be reached; showing its cached candle history."}
+      />,
+    );
+    const notice = await screen.findByRole("status");
+    expect(notice.textContent).toContain("GeckoTerminal could not be reached; showing its cached candle history.");
+  });
+
+  it("reports token candle errors without substituting another source", async () => {
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
+    render(
+      <CandleChartPanel
+        title="BONK in USD"
+        venue="geckoterminal"
+        symbol="BONK"
+        loadCandles={async () => {
+          throw new Error("GeckoTerminal is rate-limited or unavailable.");
+        }}
+        intervals={SOLANA_CANDLE_INTERVALS}
+        initialInterval="1h"
+        venueName="GeckoTerminal"
+      />,
+    );
+    expect((await screen.findByRole("alert")).textContent).toContain(
+      "Candle history could not be loaded: GeckoTerminal is rate-limited or unavailable.",
+    );
+    expect(screen.getByText("Candles from GeckoTerminal public API are unavailable.")).toBeTruthy();
   });
 });
 
