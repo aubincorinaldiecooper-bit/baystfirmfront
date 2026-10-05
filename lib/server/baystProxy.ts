@@ -25,10 +25,15 @@ export const MARKETS_ROUTES: Readonly<Record<string, string>> = {
   "track-record/backtest": "v1/track-record/backtest",
   "solana/tokens/new": "v1/solana/tokens/new",
   "solana/search": "v1/solana/search",
+  news: "v1/news",
+  "news/filings": "v1/news/filings",
 };
 
 /** A Solana mint address: base58, 32–44 characters. */
 const SOLANA_MINT = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+const NEWS_SYMBOL = /^[A-Za-z0-9.-]{1,10}$/;
+const NEWS_KINDS = new Set(["official", "filing", "market_event", "token_event"]);
+const NEWS_TICKER = /^[A-Za-z0-9.-]{1,10}$/;
 
 function upstreamPathFor(pathSegments: string[]): string | undefined {
   const fixed = MARKETS_ROUTES[pathSegments.join("/")];
@@ -51,7 +56,7 @@ function upstreamPathFor(pathSegments: string[]): string | undefined {
 
 const FORWARDED_QUERY = new Set(["symbol", "classifier", "limit", "venue", "interval", "window_hours", "q"]);
 /* Forwarded as given, repeats included (`/v1/candles?indicator=sma:20&indicator=rsi:14`). */
-const REPEATED_QUERY = new Set(["indicator"]);
+const REPEATED_QUERY = new Set(["indicator", "kind"]);
 const SYMBOLS = /^[A-Za-z0-9,_-]{1,512}$/;
 const SOLANA_CANDLE_INTERVALS = new Set(["1m", "5m", "15m", "1h", "4h", "1d"]);
 const SOLANA_CANDLE_INDICATORS = new Set(INDICATOR_OPTIONS.map((option) => option.spec));
@@ -101,6 +106,27 @@ export async function proxyMarketsRequest(request: Request, pathSegments: string
       return invalidMarketsRequest("Search query must be 1–32 characters.");
     }
   }
+  const isNewsRoute = upstreamPath === "v1/news";
+  const isFilingsRoute = upstreamPath === "v1/news/filings";
+  let normalizedTickers: string | null = null;
+  if (isNewsRoute) {
+    const symbols = requestUrl.searchParams.getAll("symbol");
+    const kinds = requestUrl.searchParams.getAll("kind");
+    if (symbols.length > 1 || (symbols.length === 1 && !NEWS_SYMBOL.test(symbols[0]) && !SOLANA_MINT.test(symbols[0]))) {
+      return invalidMarketsRequest("News symbol must be a ticker or Solana mint.");
+    }
+    if (kinds.some((kind) => !NEWS_KINDS.has(kind))) {
+      return invalidMarketsRequest("News kind must be official, filing, market_event or token_event.");
+    }
+  }
+  if (isFilingsRoute) {
+    const values = requestUrl.searchParams.getAll("tickers");
+    const tickers = values.length === 1 ? values[0].split(",").map((ticker) => ticker.trim()) : [];
+    if (tickers.length < 1 || tickers.length > 5 || tickers.some((ticker) => !NEWS_TICKER.test(ticker))) {
+      return invalidMarketsRequest("Provide 1–5 valid SEC ticker symbols.");
+    }
+    normalizedTickers = tickers.join(",");
+  }
   if (upstreamPath.startsWith("v1/solana/tokens/") && upstreamPath.endsWith("/candles")) {
     const intervals = requestUrl.searchParams.getAll("interval");
     if (intervals.length !== 1 || !SOLANA_CANDLE_INTERVALS.has(intervals[0])) {
@@ -126,10 +152,12 @@ export async function proxyMarketsRequest(request: Request, pathSegments: string
   const search = new URLSearchParams();
   for (const [name, value] of requestUrl.searchParams) {
     if (name === "q" && upstreamPath === "v1/solana/search") continue;
+    if (name === "tickers" && isFilingsRoute) continue;
     if (FORWARDED_QUERY.has(name)) search.set(name, value);
-    else if (REPEATED_QUERY.has(name)) search.append(name, value);
+    else if (REPEATED_QUERY.has(name) && (name !== "kind" || isNewsRoute)) search.append(name, value);
   }
   if (solanaSearchQuery !== null) search.set("q", solanaSearchQuery);
+  if (normalizedTickers !== null) search.set("tickers", normalizedTickers);
   const query = search.toString();
   let upstream: Response;
   try {

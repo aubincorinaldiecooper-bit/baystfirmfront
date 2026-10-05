@@ -6,10 +6,13 @@
  * recorded calculation's display string. Sections with nothing in them are
  * not rendered. A cancelled or failed run shows what it preserved. */
 
+import { useEffect } from "react";
+import NewsSection from "@/components/markets/NewsSection";
 import StreamingText from "@/components/primitives/StreamingText";
 import type { AnalysisResult } from "@/lib/api/types";
 import { citationSegments } from "@/lib/analysis/citations";
 import { requirementLabels } from "@/lib/analysis/requirements";
+import { useRecentSearches } from "@/lib/search/recents";
 import { Notice, Section } from "../ui";
 import CalculationsTable from "./CalculationsTable";
 import EvidenceSection from "./EvidenceList";
@@ -29,6 +32,27 @@ const STRUCTURED_SECTIONS = [
   ["historical_context", "Historical context"],
   ["market_context", "Market context"],
 ] as const;
+
+function StockFilings({ symbol }: { symbol: string }) {
+  const ticker = symbol.trim().toUpperCase();
+  const { record } = useRecentSearches();
+
+  useEffect(() => {
+    if (/^[A-Z0-9.-]{1,10}$/.test(ticker)) record({ kind: "stock", id: `stock:${ticker}`, label: ticker });
+  }, [record, ticker]);
+
+  if (!ticker) return null;
+  return (
+    <NewsSection
+      title="SEC filings · SEC EDGAR via Baystfirm"
+      feed="filings"
+      tickers={[ticker]}
+      limit={10}
+      emptyMessage={`No SEC filings returned for ${ticker}.`}
+      description="A separate list of SEC EDGAR filing links; not company-research evidence."
+    />
+  );
+}
 
 export function StreamedText({ text, sources, streaming }: { text: string; sources: SourceIndex; streaming: boolean }) {
   const pick = useSourcePick();
@@ -100,6 +124,7 @@ export default function ResultView({
       <CalculationsTable calculations={result.calculations} sources={sources} />
       <FreshnessSummary summary={result.freshness_summary} research={completed ? result.telemetry.research : null} />
       <SourcesList sources={result.sources} />
+      {result.instrument && <StockFilings symbol={result.instrument.symbol} />}
       <TextList id="follow-ups" title="Follow-up questions" items={assessment.follow_up_questions} />
 
       {completed && result.streamed_text && (

@@ -54,6 +54,46 @@ describe("proxyMarketsRequest", () => {
     ]);
   });
 
+  it("forwards repeatable news kinds and SEC filing tickers to their approved routes", async () => {
+    const { fetchImpl, calls } = upstream(() => new Response("{}", { status: 200 }));
+    const deps = { fetch: fetchImpl, config: CONFIG, session };
+    const mint = "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263";
+    await proxyMarketsRequest(
+      new Request("http://l/api/markets/news?symbol=BTC&kind=market_event&kind=official&limit=30"),
+      ["news"],
+      deps,
+    );
+    await proxyMarketsRequest(new Request(`http://l/api/markets/news?symbol=${mint}`), ["news"], deps);
+    await proxyMarketsRequest(
+      new Request("http://l/api/markets/news/filings?tickers=AAPL%2CBRK.B&limit=10"),
+      ["news", "filings"],
+      deps,
+    );
+    expect(calls.map((call) => call.url)).toEqual([
+      "http://bayst.test/v1/news?symbol=BTC&kind=market_event&kind=official&limit=30",
+      `http://bayst.test/v1/news?symbol=${mint}`,
+      "http://bayst.test/v1/news/filings?limit=10&tickers=AAPL%2CBRK.B",
+    ]);
+  });
+
+  it("rejects invalid news kinds, symbols and SEC tickers before calling upstream", async () => {
+    const { fetchImpl, calls } = upstream(() => new Response("{}", { status: 200 }));
+    const deps = { fetch: fetchImpl, config: CONFIG, session };
+    const responses = await Promise.all([
+      proxyMarketsRequest(new Request("http://l/api/markets/news?kind=classifier"), ["news"], deps),
+      proxyMarketsRequest(new Request("http://l/api/markets/news?symbol=bad%20symbol"), ["news"], deps),
+      proxyMarketsRequest(new Request("http://l/api/markets/news?symbol=BTC&symbol=ETH"), ["news"], deps),
+      proxyMarketsRequest(new Request("http://l/api/markets/news/filings?tickers=AAPL%2C%2CGOOG"), ["news", "filings"], deps),
+      proxyMarketsRequest(
+        new Request("http://l/api/markets/news/filings?tickers=AAPL%2CGOOG%2CMSFT%2CAMZN%2CNVDA%2CMETA"),
+        ["news", "filings"],
+        deps,
+      ),
+    ]);
+    expect(responses.map((response) => response.status)).toEqual([422, 422, 422, 422, 422]);
+    expect(calls).toHaveLength(0);
+  });
+
   it("forwards candle selectors through the server-side proxy", async () => {
     const { fetchImpl, calls } = upstream(() => new Response('{"candles":[]}', { status: 200 }));
     const request = new Request(

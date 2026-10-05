@@ -249,11 +249,20 @@ export default function HistorySidebar({
       onPick={(id) => {
         onNavigate?.();
         if (id.startsWith("analysis:")) router.push(`/analyses/${encodeURIComponent(id.slice("analysis:".length))}`);
-        else if (id.startsWith("crypto:") || id.startsWith("token:")) {
+        else if (id.startsWith("crypto:") || id.startsWith("token:") || id.startsWith("stock:")) {
           const item = localRecents.find((recent) => recent.id === id);
-          if (item) router.push(recentRoute(item));
+          if (item?.kind === "stock") {
+            const latest = [...history.items]
+              .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))
+              .find((analysis) => analysis.instrument?.symbol.toUpperCase() === item.label.toUpperCase());
+            if (latest) router.push(`/analyses/${encodeURIComponent(latest.analysis_id)}`);
+            else {
+              workspace.setSearchQuery(item.label);
+              workspace.focusSearch();
+            }
+          } else if (item) router.push(recentRoute(item));
           else if (id.startsWith("crypto:")) router.push(`/crypto/${encodeURIComponent(id.slice("crypto:".length))}`);
-          else router.push(`/tokens/${encodeURIComponent(id.slice("token:".length))}`);
+          else if (id.startsWith("token:")) router.push(`/tokens/${encodeURIComponent(id.slice("token:".length))}`);
         }
       }}
       recentsEmpty={empty}

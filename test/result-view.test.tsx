@@ -7,12 +7,31 @@
  * Laya internals (questions, digests, raw scores) may reach the page.
  */
 import { cleanup, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import ResultView from "@/components/finance/result/ResultView";
 import type { AnalysisResult } from "@/lib/api/types";
+import * as marketsClient from "@/lib/markets/client";
+import type { FilingsFeed, NewsItem } from "@/lib/markets/types";
+import { RECENT_SEARCHES_KEY } from "@/lib/search/recents";
 import { cancelledRun, clone, completedRun, failedRun, thesisRun, thesisScopeRun } from "./fixtures/backend";
 
-afterEach(cleanup);
+const EMPTY_FILINGS: FilingsFeed = {
+  generated_at: "2026-10-04T17:00:00Z",
+  items: [],
+  notes: [],
+  source: { source: "sec_edgar", label: "SEC EDGAR", url: "https://www.sec.gov/files/company_tickers.json", last_success_at: null, last_error: null },
+  note: "Headlines link to the original publisher. Market and token events are measured by Baystfirm from exchange and on-chain data. Facts, not investment advice.",
+};
+
+beforeEach(() => {
+  vi.spyOn(marketsClient, "getFilings").mockResolvedValue(EMPTY_FILINGS);
+});
+
+afterEach(() => {
+  cleanup();
+  localStorage.clear();
+  vi.restoreAllMocks();
+});
 
 function renderResult(result: AnalysisResult) {
   return render(<ResultView result={result} />);
@@ -37,6 +56,49 @@ describe("completed result on backend main (no optional fields)", () => {
     expect(container.textContent).not.toContain("Since the prior assessment");
     expect(container.textContent).not.toContain("Valuation vs fundamentals");
     expect(screen.queryByLabelText("What this question needs")).toBeNull();
+  });
+
+  it("shows SEC EDGAR filings separately from company-research evidence", async () => {
+    const filing: NewsItem = {
+      id: "aapl-10q",
+      kind: "filing",
+      source: "sec_edgar",
+      source_label: "SEC EDGAR",
+      title: "Apple Inc.: Form 10-Q",
+      url: "https://www.sec.gov/Archives/edgar/data/320193/filing.htm",
+      published_at: "2026-10-04T16:00:00Z",
+      symbols: ["AAPL"],
+      details: {},
+    };
+    const getFilings = vi.spyOn(marketsClient, "getFilings").mockResolvedValue({
+      ...EMPTY_FILINGS,
+      items: [filing],
+    });
+    renderResult(completedRun.result);
+
+    const section = await screen.findByRole("region", { name: /^SEC filings · SEC EDGAR via Baystfirm/ });
+    const link = within(section).getByRole("link", { name: filing.title });
+    expect(link.getAttribute("href")).toBe(filing.url);
+    expect(section.textContent).toContain("not company-research evidence");
+    expect(getFilings).toHaveBeenCalledWith(["AAPL"], 10, expect.any(Function), expect.any(AbortSignal));
+    expect(JSON.parse(localStorage.getItem(RECENT_SEARCHES_KEY) ?? "[]")).toContainEqual(
+      expect.objectContaining({ kind: "stock", id: "stock:AAPL", label: "AAPL" }),
+    );
+  });
+
+  it("shows the backend's per-ticker note when there are no filings", async () => {
+    vi.spyOn(marketsClient, "getFilings").mockResolvedValue({
+      ...EMPTY_FILINGS,
+      notes: ["No SEC filer found for AAPL (non-US companies may not file with the SEC)."],
+    });
+    renderResult(completedRun.result);
+    const section = await screen.findByRole("region", { name: /^SEC filings · SEC EDGAR via Baystfirm/ });
+    expect(within(section).getByText(/No SEC filer found for AAPL/)).toBeTruthy();
+  });
+
+  it("omits the filings section when the result has no instrument", () => {
+    renderResult({ ...clone(completedRun.result), instrument: null });
+    expect(screen.queryByRole("region", { name: /^SEC filings · SEC EDGAR via Baystfirm/ })).toBeNull();
   });
 
   it("shows every computed figure as the backend's display string", () => {
@@ -129,7 +191,7 @@ describe("completed result on backend main (no optional fields)", () => {
 
   it("marks a completed but cut-off synthesis as incomplete", () => {
     renderResult({ ...clone(result), partial: true });
-    expect(screen.getByRole("status").textContent).toContain("This assessment is incomplete.");
+    expect(screen.getByText("This assessment is incomplete.")).toBeTruthy();
   });
 });
 

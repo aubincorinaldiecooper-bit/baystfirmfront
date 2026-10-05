@@ -289,3 +289,41 @@ export interface NewTokensFeed {
   tokens: TokenCard[];
   note: string;
 }
+
+export type NewsKind = "official" | "filing" | "market_event" | "token_event";
+export type NewsSource = "sec" | "cftc" | "federal_reserve" | "bank_of_canada" | "sec_edgar" | "baystfirm";
+
+export interface NewsItem {
+  id: string;
+  kind: NewsKind;
+  source: NewsSource;
+  source_label: string;
+  title: string;
+  url: string | null;
+  published_at: string;
+  symbols: string[];
+  details: Record<string, unknown>;
+}
+
+export interface NewsSourceStatus {
+  source: NewsSource;
+  label: string;
+  url: string;
+  last_success_at: string | null;
+  last_error: string | null;
+}
+
+export interface NewsFeed {
+  generated_at: string;
+  items: NewsItem[];
+  sources: NewsSourceStatus[];
+  note: string;
+}
+
+export interface FilingsFeed {
+  generated_at: string;
+  items: NewsItem[];
+  notes: string[];
+  source: NewsSourceStatus;
+  note: string;
+}

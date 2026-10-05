@@ -6,14 +6,16 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/atoms/Button";
 import { StatusPill } from "@/components/atoms/StatusPill";
 import { useMarketsContext } from "@/components/markets/MarketsProvider";
+import NewsList, { NEWS_NOTE } from "@/components/markets/NewsList";
 import TokensView from "@/components/markets/TokensView";
-import { fetchCandles } from "@/lib/markets/client";
+import { fetchCandles, getFilings, getNews } from "@/lib/markets/client";
 import { formatClock, formatQuote, venueLabel } from "@/lib/markets/labels";
 import { groupInstrumentsByBase, type BaseInstrumentGroup } from "@/lib/markets/instruments";
 import { cryptoMove, rankMarketMoves, solanaMove } from "@/lib/markets/moves";
 import { instrumentRows } from "@/lib/markets/state";
 import { sourceLabel } from "@/lib/markets/tokens";
-import type { CandleResponse, NewTokensFeed } from "@/lib/markets/types";
+import type { CandleResponse, NewsItem, NewTokensFeed } from "@/lib/markets/types";
+import { recentStockTickers, useRecentSearches } from "@/lib/search/recents";
 import PageHeader from "./PageHeader";
 import { Badge, Notice, Section } from "./ui";
 import { useWorkspace } from "./workspace";
@@ -33,6 +35,69 @@ function relativeTime(value: string): string {
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
   if (seconds < 86_400) return `${Math.floor(seconds / 3600)}h ago`;
   return `${Math.floor(seconds / 86_400)}d ago`;
+}
+
+export function mergeNewsItems(...groups: readonly NewsItem[][]): NewsItem[] {
+  const byId = new Map<string, NewsItem>();
+  for (const group of groups) {
+    for (const item of group) byId.set(item.id, item);
+  }
+  return [...byId.values()].sort((a, b) => Date.parse(b.published_at) - Date.parse(a.published_at));
+}
+
+function HomeNews() {
+  const { items: recentSearches } = useRecentSearches();
+  const tickerKey = recentStockTickers(recentSearches).join(",");
+  const [items, setItems] = useState<NewsItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [note, setNote] = useState(NEWS_NOTE);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let active = true;
+    let latestRequest = 0;
+    const refresh = async () => {
+      if (document.visibilityState === "hidden") return;
+      const request = ++latestRequest;
+      setLoading(true);
+      setError(null);
+      const tickers = tickerKey ? tickerKey.split(",") : [];
+      const [newsResult, filingsResult] = await Promise.allSettled([
+        getNews({ limit: 30 }, fetch, controller.signal),
+        tickers.length ? getFilings(tickers, 10, fetch, controller.signal) : Promise.resolve(null),
+      ]);
+      if (!active || request !== latestRequest) return;
+      const news = newsResult.status === "fulfilled" ? newsResult.value : null;
+      const filings = filingsResult.status === "fulfilled" ? filingsResult.value : null;
+      setItems(mergeNewsItems(news?.items ?? [], filings?.items ?? []));
+      setNote(news?.note ?? filings?.note ?? NEWS_NOTE);
+      const errors = [
+        newsResult.status === "rejected" ? "News could not be loaded." : "",
+        filingsResult.status === "rejected" ? "SEC filings could not be loaded." : "",
+      ].filter(Boolean);
+      setError(errors.length ? errors.join(" ") : null);
+      setLoading(false);
+    };
+    void refresh();
+    const interval = window.setInterval(() => void refresh(), 60_000);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") void refresh();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      active = false;
+      controller.abort();
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [tickerKey]);
+
+  return (
+    <Section id="news-events" title="News & events" count={items.length}>
+      <NewsList items={items} loading={loading} error={error} note={note} />
+    </Section>
+  );
 }
 
 function CryptoOverview({
@@ -310,6 +375,7 @@ export default function HomeView() {
             />
             <StocksOverview />
           </div>
+          <HomeNews />
           <TokensView
             embedded
             onFeedUpdate={setTokenFeed}

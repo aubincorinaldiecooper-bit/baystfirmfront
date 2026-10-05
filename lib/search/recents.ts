@@ -7,7 +7,7 @@ export const MAX_RECENT_SEARCHES = 30;
 const RECENT_SEARCHES_CHANGE_EVENT = "baystfirm:recent-searches";
 
 export interface RecentSearch {
-  kind: "crypto" | "token";
+  kind: "crypto" | "token" | "stock";
   id: string;
   label: string;
   detail?: string;
@@ -18,7 +18,7 @@ function asRecent(value: unknown): RecentSearch | null {
   if (typeof value !== "object" || value === null) return null;
   const item = value as Record<string, unknown>;
   if (
-    (item.kind !== "crypto" && item.kind !== "token") ||
+    (item.kind !== "crypto" && item.kind !== "token" && item.kind !== "stock") ||
     typeof item.id !== "string" ||
     !item.id ||
     typeof item.label !== "string" ||
@@ -54,6 +54,17 @@ export function recordRecentSearch(items: readonly RecentSearch[], item: RecentS
 
 export function sortedRecents(items: readonly RecentSearch[]): RecentSearch[] {
   return [...items].sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
+}
+
+export function recentStockTickers(items: readonly RecentSearch[]): string[] {
+  const tickers = new Set<string>();
+  for (const item of sortedRecents(items)) {
+    if (item.kind !== "stock") continue;
+    const ticker = item.label.trim().toUpperCase();
+    if (/^[A-Z0-9.-]{1,10}$/.test(ticker)) tickers.add(ticker);
+    if (tickers.size === 5) break;
+  }
+  return [...tickers];
 }
 
 function readStoredRecents(): RecentSearch[] {
