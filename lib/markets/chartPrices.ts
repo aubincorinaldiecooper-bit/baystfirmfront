@@ -29,8 +29,8 @@ export function formatCandlePrice(value: number | null | undefined, precision: n
 
 export function candlePriceFormat(precision: number) {
   return {
-    type: "price",
-    precision,
+    type: "custom",
+    formatter: (value: number) => formatCandlePrice(value, precision),
     minMove: 10 ** -precision,
   } as const;
 }

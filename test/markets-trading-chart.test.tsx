@@ -11,6 +11,7 @@ import CandleChartPanel, { type CandleLoader } from "@/components/markets/Candle
 import LiveChart from "@/components/markets/LiveChart";
 import TradingChart, { chartPanes, continuesHistory } from "@/components/markets/TradingChart";
 import { fetchCandles, fetchTokenCandles } from "@/lib/markets/client";
+import { candlePriceFormat } from "@/lib/markets/chartPrices";
 import { chartLines, indicatorPoints } from "@/lib/markets/indicators";
 import { stablecoinReferenceLines } from "@/lib/markets/stablecoins";
 import { SOLANA_CANDLE_INTERVALS, type CandleBar, type CandleInterval, type CandleResponse } from "@/lib/markets/types";
@@ -156,13 +157,15 @@ describe("shared token candlestick panel", () => {
     const series = chartMock.chart.addSeries.mock.results[0]?.value as {
       applyOptions: ReturnType<typeof vi.fn>;
     };
-    await waitFor(() =>
-      expect(series.applyOptions).toHaveBeenCalledWith(
-        expect.objectContaining({
-          priceFormat: { type: "price", precision: 9, minMove: 0.000000001 },
-        }),
-      ),
-    );
+    const priceFormat = await waitFor(() => {
+      const format = series.applyOptions.mock.calls
+        .map(([options]) => (options as { priceFormat?: { type?: string; minMove?: number; formatter?: (value: number) => string } }).priceFormat)
+        .find((candidate) => candidate?.type === "custom");
+      expect(format).toBeDefined();
+      return format!;
+    });
+    expect(priceFormat.minMove).toBe(1e-9);
+    expect(priceFormat.formatter?.(0.00000377)).toBe("0.000003770");
   });
 
   it("keeps the candle panel live price at the loaded candle precision", async () => {
@@ -225,6 +228,7 @@ describe("shared token candlestick panel", () => {
     chartMock.chart.addSeries.mockClear();
     render(<TradingChart candles={[bitcoin]} lines={[]} dark={false} emptyText={null} ariaLabel="BTC test chart" />);
     expect(screen.getByText("O 85,505.91")).toBeTruthy();
+    expect(candlePriceFormat(2).formatter(85_800)).toBe("85,800.00");
   });
 
   it("hides stablecoin indicators without requesting them and keeps BTC controls visible", async () => {
