@@ -33,8 +33,8 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-function renderResult(result: AnalysisResult) {
-  return render(<ResultView result={result} />);
+function renderResult(result: AnalysisResult, simple = false) {
+  return render(<ResultView result={result} simple={simple} />);
 }
 
 const section = (name: string) => screen.getByRole("region", { name: new RegExp(`^${name}`) });
@@ -56,6 +56,41 @@ describe("completed result on backend main (no optional fields)", () => {
     expect(container.textContent).not.toContain("Since the prior assessment");
     expect(container.textContent).not.toContain("Valuation vs fundamentals");
     expect(screen.queryByLabelText("What this question needs")).toBeNull();
+  });
+
+  it("limits Simple evidence sections to three items, removes stance badges, and keeps them in Details", () => {
+    const simpleResult = clone(result);
+    const template = [
+      ...simpleResult.assessment.what_changed,
+      ...simpleResult.assessment.bull_evidence,
+      ...simpleResult.assessment.bear_evidence,
+      ...simpleResult.assessment.risks,
+    ][0];
+    expect(template).toBeDefined();
+    const items = (label: string, stance: "bullish" | "bearish") =>
+      Array.from({ length: 5 }, (_, index) => ({
+        ...template!,
+        text: `${label} item ${index + 1}`,
+        stance,
+      }));
+    simpleResult.assessment.what_changed = items("Change", "bullish");
+    simpleResult.assessment.bull_evidence = items("Positive", "bullish");
+    simpleResult.assessment.bear_evidence = items("Negative", "bearish");
+    simpleResult.assessment.risks = items("Risk", "bearish");
+
+    const rendered = renderResult(simpleResult, true);
+    expect(section("Assessment")).toBeTruthy();
+    for (const title of ["What changed", "Positives", "Negatives"]) {
+      expect(within(section(title)).getAllByRole("listitem")).toHaveLength(3);
+    }
+    expect(screen.getAllByText("2 more in Details")).toHaveLength(2);
+    expect(screen.getByText("7 more in Details")).toBeTruthy();
+    expect(screen.queryByText("Bullish", { exact: true })).toBeNull();
+    expect(screen.queryByText("Bearish", { exact: true })).toBeNull();
+
+    rendered.rerender(<ResultView result={simpleResult} />);
+    expect(screen.getAllByText("Bullish", { exact: true }).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Bearish", { exact: true }).length).toBeGreaterThan(0);
   });
 
   it("shows SEC EDGAR filings separately from company-research evidence", async () => {

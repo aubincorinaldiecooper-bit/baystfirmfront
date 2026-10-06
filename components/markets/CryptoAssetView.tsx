@@ -5,13 +5,16 @@ import { Button } from "@/components/atoms/Button";
 import { StatusPill } from "@/components/atoms/StatusPill";
 import PageHeader from "@/components/finance/PageHeader";
 import { Badge, Notice, Section } from "@/components/finance/ui";
+import ViewModeToggle from "@/components/finance/ViewModeToggle";
 import { useMarketsContext } from "@/components/markets/MarketsProvider";
+import SimpleCryptoAssetView from "@/components/markets/SimpleCryptoAssetView";
 import { useWorkspace } from "@/components/finance/workspace";
 import { watchlistAlertsEnabled } from "@/lib/markets/features";
-import { formatQuote, horizonLabel, venueLabel } from "@/lib/markets/labels";
+import { assetName, formatQuote, horizonLabel, venueLabel } from "@/lib/markets/labels";
 import { groupInstrumentsByBase, preferredInstrument } from "@/lib/markets/instruments";
 import { stablecoinReferenceLines } from "@/lib/markets/stablecoins";
 import { classificationsFor, instrumentKey, instrumentRows, type InstrumentRow } from "@/lib/markets/state";
+import { useViewMode } from "@/lib/markets/useViewMode";
 import { useWatchlist } from "@/lib/markets/useWatchlist";
 import type { DerivativeState } from "@/lib/markets/state";
 import NewsSection from "./NewsSection";
@@ -96,6 +99,8 @@ export default function CryptoAssetView({
   const { focusSearch, setSearchQuery } = useWorkspace();
   const featuresEnabled = watchlistAlertsEnabled();
   const watchlist = useWatchlist();
+  const [viewMode, setViewMode] = useViewMode();
+  const simple = viewMode === "simple";
   const [horizon, setHorizon] = useState<number>(3600);
   const [picked, setPicked] = useState<{ context: string; key: string } | null>(null);
   const [tab, setTab] = useState<CryptoTab>(() => tabFromParam(tabParam));
@@ -115,7 +120,10 @@ export default function CryptoAssetView({
     rows[0]?.key ??
     null;
   const selectedRow = rows.find((row) => row.key === selected);
+  const simpleRow = group?.preferred ?? preferredInstrument(rows);
   const referenceLines = stablecoinReferenceLines(base, selectedRow?.last.quote_asset);
+  const simpleReferenceLines =
+    stablecoinReferenceLines(base, "USD") ?? stablecoinReferenceLines(base, simpleRow?.last.quote_asset);
   const stablecoinPage = referenceLines !== undefined;
   const snapshotSymbols = snapshot?.symbols ?? EMPTY_MARKET_NAMES;
   const knownBase = rows.length > 0 || snapshotSymbols.some((symbol) => baseOf(symbol) === base);
@@ -163,13 +171,28 @@ export default function CryptoAssetView({
       />
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-[1280px] px-4 pb-16 pt-6 sm:px-8">
-          <h1 className="text-[22px] font-semibold tracking-tight text-ink">{base}</h1>
-          <p className="mt-2 max-w-[760px] text-[14px] leading-[1.6] text-ink-2">
-            Market states and probabilities only, not investment advice. No trading, wallets or custody.
-          </p>
-          <p className="mt-1 max-w-[760px] text-[12.5px] leading-[1.6] text-ink-3">
-            Live public market data {venueNames.length ? `from ${venueNames.map(venueLabel).join(", ")} ` : ""}normalized by the Baystfirm backend.
-          </p>
+          <div className="flex items-center justify-between gap-3">
+            <h1 className="text-[22px] font-semibold tracking-tight text-ink">
+              {simple && assetName(base) ? `${assetName(base)} (${base})` : base}
+            </h1>
+            <ViewModeToggle value={viewMode} onChange={setViewMode} />
+          </div>
+          {simple ? (
+            <p className="mt-2 max-w-[760px] text-[11.5px] leading-[1.6] text-ink-3">
+              {venueNames.length
+                ? `Prices from ${venueNames.map(venueLabel).join(", ")} public market data.`
+                : "Prices from public exchange market data."}
+            </p>
+          ) : (
+            <>
+              <p className="mt-2 max-w-[760px] text-[14px] leading-[1.6] text-ink-2">
+                Market states and probabilities only, not investment advice. No trading, wallets or custody.
+              </p>
+              <p className="mt-1 max-w-[760px] text-[12.5px] leading-[1.6] text-ink-3">
+                Live public market data {venueNames.length ? `from ${venueNames.map(venueLabel).join(", ")} ` : ""}normalized by the Baystfirm backend.
+              </p>
+            </>
+          )}
 
           {snapshotError && (
             <div className="mt-5">
@@ -184,7 +207,30 @@ export default function CryptoAssetView({
             </div>
           )}
 
-          {!state.snapshotLoaded && !knownBase ? (
+          {simple ? (
+            !state.snapshotLoaded && !knownBase ? (
+              <p className="mt-6 rounded-[10px] bg-surface px-4 py-3 text-[12.5px] text-ink-3 shadow-card">Reading the exchange snapshot…</p>
+            ) : !knownBase ? (
+              <div className="mt-6">
+                <Notice
+                  kind="info"
+                  title={`${base} isn’t on our exchange feeds yet.`}
+                  actions={<Button variant="secondary" size="xs" onClick={searchThisBase}>Search for {base}</Button>}
+                >
+                  Search the header to choose a covered asset, Solana token, or company to research.
+                </Notice>
+              </div>
+            ) : (
+              <SimpleCryptoAssetView
+                base={base}
+                rows={rows}
+                preferredRow={simpleRow}
+                ticks={simpleRow ? state.ticks[simpleRow.key] ?? [] : []}
+                marketState={state}
+                referenceLines={simpleReferenceLines}
+              />
+            )
+          ) : !state.snapshotLoaded && !knownBase ? (
             <p className="mt-6 rounded-[10px] bg-surface px-4 py-3 text-[12.5px] text-ink-3 shadow-card">Reading the exchange snapshot…</p>
           ) : !knownBase ? (
             <div className="mt-6">
@@ -381,9 +427,11 @@ export default function CryptoAssetView({
               </div>
             </>
           )}
-          <div className="mt-6">
-            <Badge tone="neutral">Intelligence only · no trading or custody</Badge>
-          </div>
+          {!simple && (
+            <div className="mt-6">
+              <Badge tone="neutral">Intelligence only · no trading or custody</Badge>
+            </div>
+          )}
         </div>
       </div>
     </>

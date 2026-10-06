@@ -41,11 +41,24 @@ function readAt(iso: string | null) {
   return iso ? `${iso.slice(0, 10)} ${formatClock(iso)}` : "time unknown";
 }
 
-export default function TokenFactsList({ card }: { card: TokenCard }) {
+export default function TokenFactsList({ card, simple = false }: { card: TokenCard; simple?: boolean }) {
   const holders = card.facts.top10_share.status === "ok" ? (card.facts.top10_share.value?.holders ?? []) : [];
   const top10 = card.facts.top10_share.status === "ok" ? card.facts.top10_share.value : null;
   const market = card.facts.market.status === "ok" ? card.facts.market.value : null;
   const second = card.second_opinion;
+
+  if (simple) {
+    return (
+      <>
+        <div className="mt-4">
+          <Glances card={card} />
+        </div>
+        <p className="mt-2 text-[11.5px] text-ink-3">
+          Each item is a sourced fact, not a safety rating. Switch to Details for sources and times.
+        </p>
+      </>
+    );
+  }
 
   return (
     <>

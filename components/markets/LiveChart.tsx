@@ -14,6 +14,7 @@ export default function LiveChart({
   ticks,
   referenceLines,
   showIndicators = true,
+  simple = false,
 }: {
   title: string;
   venue: string | null;
@@ -21,6 +22,7 @@ export default function LiveChart({
   ticks: Tick[];
   referenceLines?: readonly { price: number; title: string }[];
   showIndicators?: boolean;
+  simple?: boolean;
 }) {
   const loadCandles = useCallback(
     (interval: CandleInterval, signal: AbortSignal, indicators: readonly string[]) => {
@@ -37,6 +39,7 @@ export default function LiveChart({
       symbol={symbol}
       referenceLines={referenceLines}
       showIndicators={showIndicators}
+      simple={simple}
       loadCandles={venue && symbol ? loadCandles : undefined}
       ticks={ticks}
       venueName={venue ? venueLabel(venue) : undefined}

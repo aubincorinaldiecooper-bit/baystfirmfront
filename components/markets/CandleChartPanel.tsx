@@ -2,14 +2,20 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { mergeTradeIntoCurrentCandle } from "@/lib/markets/candles";
-import { candlePricePrecision, formatCandlePrice } from "@/lib/markets/chartPrices";
+import { candleChangePercent, candlePricePrecision, formatCandlePrice } from "@/lib/markets/chartPrices";
 import { INDICATOR_OPTIONS, chartLines } from "@/lib/markets/indicators";
-import { formatClock } from "@/lib/markets/labels";
+import { formatClock, formatSpan } from "@/lib/markets/labels";
 import type { Tick } from "@/lib/markets/state";
 import { CANDLE_INTERVALS, type CandleInterval, type CandleResponse } from "@/lib/markets/types";
 import TradingChart from "./TradingChart";
 
 const EMPTY_INDICATORS: string[] = [];
+const SIMPLE_INTERVALS = ["1m", "1h", "1d"] as const satisfies readonly CandleInterval[];
+const SIMPLE_INTERVAL_LABELS: Record<(typeof SIMPLE_INTERVALS)[number], string> = {
+  "1m": "Minutes",
+  "1h": "Hours",
+  "1d": "Days",
+};
 
 export type CandleLoader = (
   interval: CandleInterval,
@@ -33,6 +39,9 @@ export default function CandleChartPanel({
   referenceLines,
   showIndicators = true,
   showLastPrice = true,
+  simple = false,
+  showSimpleChange = true,
+  onChartChange,
   ariaLabel,
 }: {
   title: ReactNode;
@@ -50,11 +59,14 @@ export default function CandleChartPanel({
   referenceLines?: readonly { price: number; title: string }[];
   showIndicators?: boolean;
   showLastPrice?: boolean;
+  simple?: boolean;
+  showSimpleChange?: boolean;
+  onChartChange?: (percentage: number | null, spanMs: number | null) => void;
   ariaLabel?: string;
 }) {
   const dark = useDarkMode();
   const lastTick = ticks[ticks.length - 1];
-  const availableIntervals = intervals ?? CANDLE_INTERVALS;
+  const availableIntervals = simple ? SIMPLE_INTERVALS : intervals ?? CANDLE_INTERVALS;
   const initial = availableIntervals.includes(initialInterval) ? initialInterval : availableIntervals[0] ?? "1m";
   const [interval, setCandleInterval] = useState<CandleInterval>(initial);
   const [indicators, setIndicators] = useState<string[]>([]);
@@ -99,6 +111,11 @@ export default function CandleChartPanel({
     [interval, response, ticks],
   );
   const pricePrecision = candlePricePrecision(mergedCandles);
+  const chartChangePct = candleChangePercent(mergedCandles);
+  const chartSpanMs =
+    mergedCandles.length >= 2
+      ? mergedCandles[mergedCandles.length - 1].open_time - mergedCandles[0].open_time
+      : null;
   const lines = useMemo(() => chartLines(response, requestIndicators), [requestIndicators, response]);
   const toggleIndicator = (spec: string) =>
     setIndicators((current) =>
@@ -110,6 +127,10 @@ export default function CandleChartPanel({
       ? emptyMessage ?? "The public API returned no candles for this interval."
       : "Select a traded instrument to load its candle history.";
   const displayVenue = venueName ?? venue ?? "venue";
+
+  useEffect(() => {
+    onChartChange?.(chartChangePct, chartSpanMs);
+  }, [chartChangePct, chartSpanMs, onChartChange]);
 
   return (
     <div className="rounded-[10px] bg-surface p-3 shadow-card">
@@ -130,7 +151,7 @@ export default function CandleChartPanel({
             onClick={() => setCandleInterval(value)}
             className={`rounded-md px-2 py-1 text-[11px] ${interval === value ? "bg-ink text-surface" : "bg-surface text-ink-2 hover:bg-hover-2"}`}
           >
-            {value}
+            {simple ? SIMPLE_INTERVAL_LABELS[value as (typeof SIMPLE_INTERVALS)[number]] : value}
           </button>
         ))}
       </div>
@@ -154,13 +175,19 @@ export default function CandleChartPanel({
           ))}
         </div>
       )}
+      {simple && showSimpleChange && chartChangePct !== null && chartSpanMs !== null && (
+        <p className={`mb-2 text-[12px] font-medium tabular-nums ${chartChangePct >= 0 ? "text-green" : "text-red"}`}>
+          {chartChangePct >= 0 ? "+" : ""}{chartChangePct.toFixed(2)}% over {formatSpan(chartSpanMs)}
+        </p>
+      )}
       <TradingChart
         candles={mergedCandles}
         lines={lines}
         referenceLines={referenceLines}
         dark={dark}
+        simple={simple}
         emptyText={mergedCandles.length > 0 ? null : loading ? loadingMessage ?? "Loading candles…" : noCandles}
-        ariaLabel={ariaLabel ?? `Candlestick history for ${symbol ?? "instrument"} on ${displayVenue}`}
+        ariaLabel={ariaLabel ?? `${simple ? "Price" : "Candlestick"} history for ${symbol ?? "instrument"} on ${displayVenue}`}
       />
       {response ? (
         attribution ? (
@@ -190,7 +217,7 @@ export default function CandleChartPanel({
           {staleMessage ? staleMessage(response) : `Warning: showing cached candle history after an upstream error: ${response.error ?? "upstream unavailable"}`}
         </p>
       )}
-      {response?.truncated && (
+      {response?.truncated && !simple && (
         <p className="mt-1 text-[11.5px] text-ink-3">
           Showing the most recent {response.candles.length} candles {displayVenue} provides.
         </p>

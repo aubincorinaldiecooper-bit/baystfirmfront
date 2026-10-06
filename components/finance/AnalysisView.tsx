@@ -32,12 +32,14 @@ import SymbolPanel from "./analysis/SymbolPanel";
 import CandidatePicker from "./CandidatePicker";
 import { AnalysisErrorPanel, RequestErrorPanel } from "./ErrorPanels";
 import PageHeader from "./PageHeader";
+import ViewModeToggle from "./ViewModeToggle";
 import { ProgressTrace } from "./ProgressPanel";
 import RequirementChips from "./result/RequirementChips";
 import ResultView, { StreamedText } from "./result/ResultView";
 import { SourcePickContext, sourceIndex } from "./result/sources";
 import { Badge, Notice } from "./ui";
 import { useWorkspace } from "./workspace";
+import { useViewMode } from "@/lib/markets/useViewMode";
 
 function ConnectionNotice({ run }: { run: AnalysisRun }) {
   if (isTerminalUiStatus(run.state.status)) return null;
@@ -88,6 +90,8 @@ export default function AnalysisView({ analysisId }: { analysisId: string }) {
   const terminal = isTerminalUiStatus(state.status);
   const running = !terminal && run.load === "ready";
   const settled = state.result && isTerminalStatus(state.result.status) ? state.result : null;
+  const [viewMode, setViewMode] = useViewMode();
+  const simple = viewMode === "simple" && settled?.status === "completed";
   const streamedSources = sourceIndex(state.sources);
   /* PR #4 (optional): the result's labels when it has them, else those from research.started */
   const resultLabels = settled ? requirementLabels(settled.requirements) : [];
@@ -269,11 +273,16 @@ export default function AnalysisView({ analysisId }: { analysisId: string }) {
 
   const analysisTab = (
     <div className="flex flex-col gap-4 px-4 pb-6 pt-4">
+      {settled?.status === "completed" && (
+        <div className="flex justify-end min-[1100px]:hidden">
+          <ViewModeToggle value={viewMode} onChange={setViewMode} />
+        </div>
+      )}
       {state.query && (
         <p className="max-w-[320px] self-end rounded-[14px] bg-hover-2 px-3.5 py-2 text-[13.5px] leading-normal text-ink">{state.query}</p>
       )}
       {meta && <p className="text-[12px] text-ink-2">{meta}</p>}
-      {requirements.length > 0 && <RequirementChips labels={requirements} />}
+      {!simple && requirements.length > 0 && <RequirementChips labels={requirements} />}
       {(running || state.milestones.length > 0) && <ProgressTrace state={state} />}
       {!settled && state.spark.text && (
         <section aria-label="Assessment as it is written" className="rounded-[12px] bg-surface p-4 shadow-card">
@@ -287,13 +296,25 @@ export default function AnalysisView({ analysisId }: { analysisId: string }) {
       )}
       {terminal && run.resultStatus === "loading" && <LoadingState label="Loading the structured result" variant="Dots" showElapsed={false} />}
       {run.resultStatus === "error" && run.resultError && <RequestErrorPanel error={run.resultError} onRetry={run.reloadResult} />}
-      {settled && <ResultView result={settled} showRequirements={false} />}
+      {settled && <ResultView result={settled} showRequirements={false} simple={simple} />}
     </div>
   );
 
   return (
     <SourcePickContext.Provider value={pickSource}>
-      <PageHeader title={title} actions={cancelButton} />
+      <PageHeader
+        title={title}
+        actions={
+          <>
+            {cancelButton}
+            {settled?.status === "completed" && (
+              <div className="hidden min-[1100px]:flex">
+                <ViewModeToggle value={viewMode} onChange={setViewMode} />
+              </div>
+            )}
+          </>
+        }
+      />
       {hasNotices && <div className="flex shrink-0 flex-col gap-2 border-b border-line px-4 py-3">{notices}</div>}
       <div className="relative flex min-h-0 flex-1">
         <MainWindow

@@ -34,6 +34,7 @@ afterEach(() => {
 beforeEach(() => {
   nav.push.mockReset();
   localStorage.clear();
+  localStorage.setItem("bayanalytics.viewMode", "details");
   vi.stubEnv("NEXT_PUBLIC_FULL_HOME", "true");
   vi.stubEnv("NEXT_PUBLIC_WATCHLIST_ALERTS", "false");
   vi.spyOn(marketsClient, "getNews").mockResolvedValue(EMPTY_NEWS);
@@ -125,6 +126,48 @@ function setup(
 }
 
 describe("HomeView", () => {
+  it("defaults to Simple, then opens and persists the existing Details view", async () => {
+    localStorage.removeItem("bayanalytics.viewMode");
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ candles: [] }), { status: 200 }));
+    setup(fetchImpl as unknown as typeof fetch);
+
+    expect(screen.getByRole("button", { name: "Simple" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("heading", { name: "Stablecoins" })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Markets" })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Details" }));
+    expect(localStorage.getItem("bayanalytics.viewMode")).toBe("details");
+    expect(await screen.findByRole("heading", { name: "Markets" })).toBeTruthy();
+  });
+
+  it("restores a stored Details preference after mount", async () => {
+    localStorage.setItem("bayanalytics.viewMode", "details");
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ candles: [] }), { status: 200 }));
+    setup(fetchImpl as unknown as typeof fetch);
+
+    expect(await screen.findByRole("heading", { name: "Markets" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Details" }).getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("keeps crypto tabs hidden in Simple and restores them in Details", async () => {
+    localStorage.removeItem("bayanalytics.viewMode");
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ candles: [] }), { status: 200 }));
+    setup(
+      fetchImpl as unknown as typeof fetch,
+      [],
+      <CryptoAssetView base="BTC" />,
+      undefined,
+      [trade("coinbase", "BTC-USD", 85_000)],
+    );
+
+    expect(screen.getByRole("button", { name: "Simple" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.queryByRole("tablist")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Details" }));
+    expect(localStorage.getItem("bayanalytics.viewMode")).toBe("details");
+    expect(await screen.findByRole("tablist")).toBeTruthy();
+  });
+
   it("shows the stablecoin board and filtered news by default without mounting the full Home", async () => {
     vi.stubEnv("NEXT_PUBLIC_FULL_HOME", "false");
     const getNews = vi.spyOn(marketsClient, "getNews").mockResolvedValue({

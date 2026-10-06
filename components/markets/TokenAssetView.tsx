@@ -5,13 +5,15 @@ import Image from "next/image";
 import { Copy, ExternalLink } from "lucide-react";
 import { StatusPill } from "@/components/atoms/StatusPill";
 import PageHeader from "@/components/finance/PageHeader";
+import ViewModeToggle from "@/components/finance/ViewModeToggle";
 import { Notice, Section } from "@/components/finance/ui";
 import CandleChartPanel from "@/components/markets/CandleChartPanel";
 import NewsSection from "@/components/markets/NewsSection";
 import TokenFactsList from "@/components/markets/TokenFactsList";
 import { fetchTokenCard, fetchTokenCandles, fetchTokenPrice, MarketsError } from "@/lib/markets/client";
-import { formatClock } from "@/lib/markets/labels";
+import { formatClock, formatSpan } from "@/lib/markets/labels";
 import { formatUsd, shortAddress, SOLANA_MINT } from "@/lib/markets/tokens";
+import { useViewMode } from "@/lib/markets/useViewMode";
 import type { Tick } from "@/lib/markets/state";
 import {
   SOLANA_CANDLE_INTERVALS,
@@ -52,6 +54,9 @@ export default function TokenAssetView({
   const [priceResponse, setPriceResponse] = useState<TokenPriceResponse | null>(null);
   const [priceStale, setPriceStale] = useState(false);
   const [priceTicks, setPriceTicks] = useState<Tick[]>([]);
+  const [chartChange, setChartChange] = useState<{ percentage: number; spanMs: number } | null>(null);
+  const [viewMode, setViewMode] = useViewMode();
+  const simple = viewMode === "simple";
   const [copyState, setCopyState] = useState<"idle" | "copied" | "unavailable">("idle");
   const validMint = SOLANA_MINT.test(mint);
   const cardLoaded = card?.mint === mint;
@@ -66,6 +71,7 @@ export default function TokenAssetView({
     setPriceResponse(null);
     setPriceStale(false);
     setPriceTicks([]);
+    setChartChange(null);
     setCopyState("idle");
     if (!validMint) {
       setError(new MarketsError("That address is not a Solana token mint.", 400, "INVALID_MINT"));
@@ -175,6 +181,9 @@ export default function TokenAssetView({
     [fetchImpl, mint],
   );
 
+  const updateChartChange = useCallback((percentage: number | null, spanMs: number | null) => {
+    setChartChange(percentage === null || spanMs === null ? null : { percentage, spanMs });
+  }, []);
   const tokenTitle = card?.name ?? card?.symbol ?? shortAddress(mint);
   const tokenIdentity =
     card?.name && card.symbol && card.symbol.toLowerCase() !== card.name.toLowerCase() ? (
@@ -216,7 +225,7 @@ export default function TokenAssetView({
       />
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-[1280px] px-4 pb-16 pt-6 sm:px-8">
-          <p className="text-[12.5px] text-ink-3">Solana token · intelligence only · no trading, wallets or custody</p>
+          {!simple && <p className="text-[12.5px] text-ink-3">Solana token · intelligence only · no trading, wallets or custody</p>}
           <div className="mt-2 flex items-center gap-3">
             {card?.image_url && (
               <Image
@@ -228,10 +237,13 @@ export default function TokenAssetView({
                 className="size-11 rounded-full bg-surface object-cover"
               />
             )}
-            <div className="min-w-0">
-              <h1 className="text-[22px] font-semibold tracking-tight text-ink">
-                {tokenIdentity}
-              </h1>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between gap-3">
+                <h1 className="min-w-0 text-[22px] font-semibold tracking-tight text-ink">
+                  {tokenIdentity}
+                </h1>
+                <ViewModeToggle value={viewMode} onChange={setViewMode} />
+              </div>
               <div className="mt-1 flex flex-wrap items-center gap-2">
                 <span className="font-mono text-[11.5px] text-ink-3"><bdi>{shortAddress(mint)}</bdi></span>
                 {card && (
@@ -248,7 +260,22 @@ export default function TokenAssetView({
               </div>
             </div>
           </div>
-          {card && (
+          {simple && (
+            <div className="mt-4">
+              <p className="text-[34px] font-semibold leading-tight tracking-tight text-ink sm:text-[40px]">
+                {displayPrice !== null ? formatUsd(displayPrice) : "—"}
+              </p>
+              {chartChange && (
+                <p className={`mt-1 text-[12px] font-medium tabular-nums ${chartChange.percentage >= 0 ? "text-green" : "text-red"}`}>
+                  {chartChange.percentage >= 0 ? "+" : ""}{chartChange.percentage.toFixed(2)}% over {formatSpan(chartChange.spanMs)}
+                </p>
+              )}
+              <p className="mt-2 text-[11.5px] text-ink-3">
+                Measured facts only, not investment advice or a safety rating. No trading, wallets or custody.
+              </p>
+            </div>
+          )}
+          {!simple && card && (
             <p className="mt-2 text-[12px] text-ink-2">
               {displayPrice !== null && displayPriceAt && (
                 <>
@@ -274,7 +301,7 @@ export default function TokenAssetView({
           {!card && loading && <p className="mt-5 rounded-[10px] bg-surface px-4 py-3 text-[12.5px] text-ink-3 shadow-card">Reading token facts from the Baystfirm backend…</p>}
           {card && (
             <>
-              <Section id="token-candles" title="Candlestick history">
+              <Section id="token-candles" title={simple ? "Price history" : "Candlestick history"}>
                 <CandleChartPanel
                   title={<bdi>{tokenTitle} in USD</bdi>}
                   venue="geckoterminal"
@@ -282,24 +309,29 @@ export default function TokenAssetView({
                   loadCandles={loadCandles}
                   intervals={SOLANA_CANDLE_INTERVALS}
                   initialInterval="1h"
+                  simple={simple}
+                  showIndicators={!simple}
+                  showSimpleChange={false}
+                  onChartChange={updateChartChange}
                   venueName="GeckoTerminal"
                   ticks={priceTicks}
                   emptyMessage="GeckoTerminal has no candles for this interval."
                   loadingMessage="Loading candles from GeckoTerminal…"
                   staleMessage={() => "GeckoTerminal could not be reached; showing its cached candle history."}
-                  attribution={tokenAttribution}
+                  attribution={simple ? () => null : tokenAttribution}
                   showLastPrice={false}
                   ariaLabel={`Candlestick history for ${tokenTitle} in USD`}
                 />
               </Section>
-              <Section id="token-facts" title="Token facts">
-                <TokenFactsList card={card} />
+              <Section id="token-facts" title={simple ? "Quick facts" : "Token facts"}>
+                <TokenFactsList card={card} simple={simple} />
               </Section>
               <NewsSection
                 title="Token events"
                 feed="news"
                 symbol={mint}
                 kinds={["token_event"]}
+                limit={simple ? 3 : 50}
                 currentAsset={{ kind: "token", symbol: mint }}
               />
             </>

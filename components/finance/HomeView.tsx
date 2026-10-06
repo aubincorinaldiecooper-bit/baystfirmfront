@@ -19,8 +19,11 @@ import { sourceLabel } from "@/lib/markets/tokens";
 import type { CandleResponse, NewsItem, NewTokensFeed } from "@/lib/markets/types";
 import { recentStockTickers, useRecentSearches } from "@/lib/search/recents";
 import PageHeader from "./PageHeader";
+import ViewModeToggle from "./ViewModeToggle";
 import { Badge, Notice, Section } from "./ui";
 import { useWorkspace } from "./workspace";
+import { useViewMode } from "@/lib/markets/useViewMode";
+import SimpleStablecoinTable from "@/components/markets/SimpleStablecoinTable";
 
 const STREAM_STATUS = {
   connecting: { label: "Connecting", tone: "orange" as const },
@@ -364,6 +367,8 @@ function BiggestMoves({
 
 export default function HomeView() {
   const fullHome = fullHomeEnabled();
+  const [viewMode, setViewMode] = useViewMode();
+  const simple = viewMode === "simple";
   const router = useRouter();
   const { state, snapshotError, stream, reload } = useMarketsContext();
   const [tokenFeed, setTokenFeed] = useState<NewTokensFeed | null>(null);
@@ -371,12 +376,34 @@ export default function HomeView() {
 
   return (
     <>
-      <PageHeader title={fullHome ? "Markets" : "Stablecoins"} />
+      <PageHeader title={simple || !fullHome ? "Stablecoins" : "Markets"} />
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-[1280px] px-4 pb-16 pt-6 sm:px-8">
-          {fullHome ? (
+          {simple ? (
             <>
-              <h1 className="text-[22px] font-semibold tracking-tight text-ink">Markets</h1>
+              <div className="flex items-center justify-between gap-3">
+                <h1 className="text-[22px] font-semibold tracking-tight text-ink">Stablecoins</h1>
+                <ViewModeToggle value={viewMode} onChange={setViewMode} />
+              </div>
+              <p className="mt-2 max-w-[760px] text-[14px] leading-[1.6] text-ink-2">
+                Stablecoins are crypto coins designed to stay worth $1. We check their live price on major exchanges and show how close each one is to $1.
+              </p>
+              <p className="mt-1 text-[12.5px] leading-[1.6] text-ink-3">
+                Measured prices only, not investment advice. No trading, wallets or custody.
+              </p>
+              <SimpleStablecoinTable
+                marketState={state}
+                snapshotLoaded={state.snapshotLoaded}
+                snapshotError={snapshotError}
+                reload={reload}
+              />
+            </>
+          ) : fullHome ? (
+            <>
+              <div className="flex items-center justify-between gap-3">
+                <h1 className="text-[22px] font-semibold tracking-tight text-ink">Markets</h1>
+                <ViewModeToggle value={viewMode} onChange={setViewMode} />
+              </div>
               <p className="mt-2 max-w-[760px] text-[14px] leading-[1.6] text-ink-2">
                 Market states and probabilities only, not investment advice. No trading, wallets or custody. Live public crypto market data is normalized by the Baystfirm backend; company research uses fresh web-search results.
               </p>
@@ -400,7 +427,10 @@ export default function HomeView() {
             </>
           ) : (
             <>
-              <h1 className="text-[22px] font-semibold tracking-tight text-ink">Stablecoins</h1>
+              <div className="flex items-center justify-between gap-3">
+                <h1 className="text-[22px] font-semibold tracking-tight text-ink">Stablecoins</h1>
+                <ViewModeToggle value={viewMode} onChange={setViewMode} />
+              </div>
               <p className="mt-2 max-w-[760px] text-[14px] leading-[1.6] text-ink-2">
                 Live stablecoin prices against $1 across exchanges. Measured prices only, not investment advice. No trading, wallets or custody.
               </p>

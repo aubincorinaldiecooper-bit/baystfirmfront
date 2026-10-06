@@ -18,6 +18,14 @@ export function candlePricePrecision(candles: readonly Pick<CandleBar, "low">[])
   return 5;
 }
 
+export function candleChangePercent(candles: readonly Pick<CandleBar, "close">[]): number | null {
+  if (candles.length < 2) return null;
+  const firstClose = candles[0].close;
+  const lastClose = candles[candles.length - 1].close;
+  if (!Number.isFinite(firstClose) || firstClose <= 0 || !Number.isFinite(lastClose)) return null;
+  return (lastClose / firstClose - 1) * 100;
+}
+
 export function formatCandlePrice(value: number | null | undefined, precision: number): string {
   if (typeof value !== "number" || !Number.isFinite(value)) return "—";
   if (value >= 0.01 || value <= 0) return formatQuote(value);

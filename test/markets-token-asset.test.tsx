@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import TokenAssetView from "@/components/markets/TokenAssetView";
 import * as marketsClient from "@/lib/markets/client";
@@ -22,26 +22,36 @@ vi.mock("@/components/finance/PageHeader", () => ({
   ),
 }));
 vi.mock("@/components/markets/CandleChartPanel", () => ({
-  default: ({
+  default: function CandleChartPanelMock({
     title,
     ticks = [],
     showLastPrice,
+    simple = false,
+    onChartChange,
   }: {
     title: ReactNode;
     ticks?: { time: number; value: number }[];
     showLastPrice?: boolean;
-  }) => (
-    <div
-      aria-label="Token candlestick panel"
-      data-tick-count={ticks.length}
-      data-show-last-price={String(showLastPrice)}
-    >
-      {title}
-    </div>
-  ),
+    simple?: boolean;
+    onChartChange?: (percentage: number | null, spanMs: number | null) => void;
+  }) {
+    useEffect(() => {
+      if (simple) onChartChange?.(8.43, 8 * 24 * 60 * 60_000);
+    }, [onChartChange, simple]);
+    return (
+      <div
+        aria-label="Token candlestick panel"
+        data-tick-count={ticks.length}
+        data-show-last-price={String(showLastPrice)}
+      >
+        {title}
+      </div>
+    );
+  },
 }));
 afterEach(() => {
   cleanup();
+  localStorage.clear();
   vi.useRealTimers();
   Object.defineProperty(navigator, "clipboard", { configurable: true, value: undefined });
   Object.defineProperty(document, "visibilityState", { configurable: true, value: "visible" });
@@ -53,6 +63,8 @@ const NEWS_NOTE = "Headlines link to the original publisher. Market and token ev
 const EMPTY_NEWS: NewsFeed = { generated_at: "2026-10-04T17:00:00Z", items: [], sources: [], note: NEWS_NOTE };
 
 beforeEach(() => {
+  localStorage.clear();
+  localStorage.setItem("bayanalytics.viewMode", "details");
   vi.spyOn(marketsClient, "getNews").mockResolvedValue(EMPTY_NEWS);
 });
 
@@ -134,6 +146,17 @@ function jsonResponse(body: unknown, status = 200): Response {
 }
 
 describe("TokenAssetView", () => {
+  it("shows the Simple chart change over its loaded duration", async () => {
+    localStorage.removeItem("bayanalytics.viewMode");
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      return url.endsWith("/price") ? jsonResponse(tokenPrice(0.00002)) : jsonResponse(tokenCard);
+    });
+    render(<TokenAssetView mint={MINT} fetchImpl={fetchImpl as unknown as typeof fetch} />);
+
+    expect(await screen.findByText("+8.43% over 8 days")).toBeTruthy();
+  });
+
   it("renders upstream names in bidi isolation, token identity, and copy feedback", async () => {
     const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
