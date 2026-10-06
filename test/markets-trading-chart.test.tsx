@@ -7,10 +7,11 @@
  */
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import CandleChartPanel from "@/components/markets/CandleChartPanel";
+import CandleChartPanel, { type CandleLoader } from "@/components/markets/CandleChartPanel";
 import LiveChart from "@/components/markets/LiveChart";
-import { chartPanes, continuesHistory } from "@/components/markets/TradingChart";
+import TradingChart, { chartPanes, continuesHistory } from "@/components/markets/TradingChart";
 import { fetchCandles, fetchTokenCandles } from "@/lib/markets/client";
+import { candlePriceFormat } from "@/lib/markets/chartPrices";
 import { chartLines, indicatorPoints } from "@/lib/markets/indicators";
 import { stablecoinReferenceLines } from "@/lib/markets/stablecoins";
 import { SOLANA_CANDLE_INTERVALS, type CandleBar, type CandleInterval, type CandleResponse } from "@/lib/markets/types";
@@ -128,6 +129,134 @@ describe("fetchCandles", () => {
 });
 
 describe("shared token candlestick panel", () => {
+  it("uses candle-derived precision for sub-cent prices in the legend and series", async () => {
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
+    chartMock.chart.addSeries.mockClear();
+    const tinyCandle: CandleBar = {
+      open_time: 180_000,
+      open: 0.00000377,
+      high: 0.00000388,
+      low: 0.00000377,
+      close: 0.00000378,
+      volume: 1,
+    };
+
+    render(
+      <TradingChart
+        candles={[tinyCandle]}
+        lines={[]}
+        dark={false}
+        emptyText={null}
+        ariaLabel="Tiny-price test chart"
+      />,
+    );
+
+    expect(screen.getByText("O 0.000003770")).toBeTruthy();
+    expect(screen.getByText("H 0.000003880")).toBeTruthy();
+    expect(screen.getByText("C 0.000003780")).toBeTruthy();
+    const series = chartMock.chart.addSeries.mock.results[0]?.value as {
+      applyOptions: ReturnType<typeof vi.fn>;
+    };
+    const priceFormat = await waitFor(() => {
+      const format = series.applyOptions.mock.calls
+        .map(([options]) => (options as { priceFormat?: { type?: string; minMove?: number; formatter?: (value: number) => string } }).priceFormat)
+        .find((candidate) => candidate?.type === "custom");
+      expect(format).toBeDefined();
+      return format!;
+    });
+    expect(priceFormat.minMove).toBe(1e-9);
+    expect(priceFormat.formatter?.(0.00000377)).toBe("0.000003770");
+  });
+
+  it("keeps the candle panel live price at the loaded candle precision", async () => {
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
+    const loadCandles = vi.fn<CandleLoader>(async () =>
+      response({
+        venue: "geckoterminal",
+        symbol: "BONK",
+        candles: [
+          {
+            open_time: 180_000,
+            open: 0.00000377,
+            high: 0.00000388,
+            low: 0.00000377,
+            close: 0.00000378,
+            volume: 1,
+          },
+        ],
+      }),
+    );
+
+    render(
+      <CandleChartPanel
+        title="BONK in USD"
+        venue="geckoterminal"
+        symbol="BONK"
+        loadCandles={loadCandles}
+        ticks={[{ time: 180, value: 0.00000377 }]}
+      />,
+    );
+
+    expect(await screen.findByText("0.000003770")).toBeTruthy();
+  });
+
+  it("keeps USDT and BTC OHLC legend precision unchanged", () => {
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
+    const stablecoin: CandleBar = {
+      open_time: 180_000,
+      open: 0.99968,
+      high: 0.99971,
+      low: 0.99965,
+      close: 0.99968,
+      volume: 1,
+    };
+    chartMock.chart.addSeries.mockClear();
+    const stablecoinChart = render(
+      <TradingChart candles={[stablecoin]} lines={[]} dark={false} emptyText={null} ariaLabel="USDT test chart" />,
+    );
+    expect(screen.getByText("O 0.99968")).toBeTruthy();
+    stablecoinChart.unmount();
+
+    const bitcoin: CandleBar = {
+      open_time: 180_000,
+      open: 85_505.91,
+      high: 85_506.42,
+      low: 85_504.2,
+      close: 85_505.91,
+      volume: 1,
+    };
+    chartMock.chart.addSeries.mockClear();
+    render(<TradingChart candles={[bitcoin]} lines={[]} dark={false} emptyText={null} ariaLabel="BTC test chart" />);
+    expect(screen.getByText("O 85,505.91")).toBeTruthy();
+    expect(candlePriceFormat(2).formatter(85_800)).toBe("85,800.00");
+  });
+
+  it("hides stablecoin indicators without requesting them and keeps BTC controls visible", async () => {
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
+    const loadCandles = vi.fn<CandleLoader>(async () => response({ symbol: "USDT-USD" }));
+    const stablecoin = render(
+      <CandleChartPanel
+        title="USDT-USD"
+        venue="coinbase"
+        symbol="USDT-USD"
+        loadCandles={loadCandles}
+        showIndicators={false}
+      />,
+    );
+    await waitFor(() => expect(loadCandles).toHaveBeenCalledTimes(1));
+    expect(loadCandles.mock.calls[0]?.[2]).toEqual([]);
+    expect(screen.queryByRole("group", { name: "Indicators" })).toBeNull();
+    expect(screen.getByText(/^O /)).toBeTruthy();
+    expect(screen.getByText(/^H /)).toBeTruthy();
+    expect(screen.getByText(/^L /)).toBeTruthy();
+    expect(screen.getByText(/^C /)).toBeTruthy();
+
+    stablecoin.unmount();
+    render(<CandleChartPanel title="BTC-USD" venue="coinbase" symbol="BTC-USD" />);
+    expect(screen.getByRole("group", { name: "Indicators" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "RSI 14" })).toBeTruthy();
+  });
+
   it("uses token intervals, forwards interval changes, and retains GeckoTerminal attribution", async () => {
     vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
     const loadCandles = vi.fn(async (interval: CandleInterval) =>

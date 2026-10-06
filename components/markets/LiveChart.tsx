@@ -13,12 +13,14 @@ export default function LiveChart({
   symbol,
   ticks,
   referenceLines,
+  showIndicators = true,
 }: {
   title: string;
   venue: string | null;
   symbol: string | null;
   ticks: Tick[];
   referenceLines?: readonly { price: number; title: string }[];
+  showIndicators?: boolean;
 }) {
   const loadCandles = useCallback(
     (interval: CandleInterval, signal: AbortSignal, indicators: readonly string[]) => {
@@ -34,6 +36,7 @@ export default function LiveChart({
       venue={venue}
       symbol={symbol}
       referenceLines={referenceLines}
+      showIndicators={showIndicators}
       loadCandles={venue && symbol ? loadCandles : undefined}
       ticks={ticks}
       venueName={venue ? venueLabel(venue) : undefined}

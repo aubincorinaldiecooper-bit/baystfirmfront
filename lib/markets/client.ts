@@ -19,6 +19,7 @@ import type {
   SolanaSearchResponse,
   TokenCard,
   TokenCandleResponse,
+  TokenPriceResponse,
   TrackRecord,
 } from "./types";
 
@@ -78,6 +79,13 @@ export const fetchNewTokens = (limit: number, fetchImpl?: typeof fetch, signal?:
 
 export const fetchTokenCard = (mint: string, fetchImpl?: typeof fetch, signal?: AbortSignal) =>
   getMarketsJson<TokenCard>(`solana/tokens/${encodeURIComponent(mint)}`, fetchImpl, signal);
+
+export const fetchTokenPrice = (mint: string, fetchImpl?: typeof fetch, signal?: AbortSignal) =>
+  getMarketsJson<TokenPriceResponse>(
+    `solana/tokens/${encodeURIComponent(mint)}/price`,
+    fetchImpl,
+    signal,
+  );
 
 export const fetchTokenCandles = (
   mint: string,

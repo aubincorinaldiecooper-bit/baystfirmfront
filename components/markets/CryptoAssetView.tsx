@@ -232,6 +232,7 @@ export default function CryptoAssetView({
                   symbol={selectedRow?.symbol ?? null}
                   ticks={selected ? state.ticks[selected] ?? [] : []}
                   referenceLines={referenceLines}
+                  showIndicators={referenceLines === undefined}
                 />
               </Section>
               <div className="mt-6 flex flex-wrap gap-2" role="tablist" aria-label={`${base} market data`}>

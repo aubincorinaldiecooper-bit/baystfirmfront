@@ -9,15 +9,17 @@ import { Notice, Section } from "@/components/finance/ui";
 import CandleChartPanel from "@/components/markets/CandleChartPanel";
 import NewsSection from "@/components/markets/NewsSection";
 import TokenFactsList from "@/components/markets/TokenFactsList";
-import { fetchTokenCard, fetchTokenCandles, MarketsError } from "@/lib/markets/client";
+import { fetchTokenCard, fetchTokenCandles, fetchTokenPrice, MarketsError } from "@/lib/markets/client";
 import { formatClock } from "@/lib/markets/labels";
 import { formatUsd, shortAddress, SOLANA_MINT } from "@/lib/markets/tokens";
+import type { Tick } from "@/lib/markets/state";
 import {
   SOLANA_CANDLE_INTERVALS,
   type CandleInterval,
   type SolanaCandleInterval,
   type TokenCard,
   type TokenCandleResponse,
+  type TokenPriceResponse,
 } from "@/lib/markets/types";
 
 function tokenAttribution(response: import("@/lib/markets/types").CandleResponse) {
@@ -47,8 +49,12 @@ export default function TokenAssetView({
   const [error, setError] = useState<MarketsError | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshFailed, setRefreshFailed] = useState(false);
+  const [priceResponse, setPriceResponse] = useState<TokenPriceResponse | null>(null);
+  const [priceStale, setPriceStale] = useState(false);
+  const [priceTicks, setPriceTicks] = useState<Tick[]>([]);
   const [copyState, setCopyState] = useState<"idle" | "copied" | "unavailable">("idle");
   const validMint = SOLANA_MINT.test(mint);
+  const cardLoaded = card?.mint === mint;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -57,6 +63,9 @@ export default function TokenAssetView({
     setCard(null);
     setError(null);
     setRefreshFailed(false);
+    setPriceResponse(null);
+    setPriceStale(false);
+    setPriceTicks([]);
     setCopyState("idle");
     if (!validMint) {
       setError(new MarketsError("That address is not a Solana token mint.", 400, "INVALID_MINT"));
@@ -109,6 +118,51 @@ export default function TokenAssetView({
     };
   }, [fetchImpl, mint, validMint]);
 
+  useEffect(() => {
+    if (!validMint || !cardLoaded) return;
+
+    const controller = new AbortController();
+    let active = true;
+    let refreshing = false;
+    const refreshPrice = async () => {
+      if (!active || document.visibilityState !== "visible" || refreshing) return;
+      refreshing = true;
+      try {
+        const response = await fetchTokenPrice(mint, fetchImpl, controller.signal);
+        if (!active) return;
+        if (response.stale) {
+          setPriceStale(true);
+          return;
+        }
+        setPriceResponse(response);
+        setPriceStale(false);
+        const price = response.market?.price_usd;
+        const time = Date.parse(response.fetched_at) / 1000;
+        if (price !== null && price !== undefined && Number.isFinite(time)) {
+          setPriceTicks((current) => [...current, { time, value: price }].slice(-200));
+        }
+      } catch (cause: unknown) {
+        if (!active || controller.signal.aborted || (cause instanceof Error && cause.name === "AbortError")) return;
+        setPriceStale(true);
+      } finally {
+        refreshing = false;
+      }
+    };
+
+    void refreshPrice();
+    const timer = window.setInterval(() => void refreshPrice(), 10_000);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") void refreshPrice();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      active = false;
+      controller.abort();
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [cardLoaded, fetchImpl, mint, validMint]);
+
   const loadCandles = useCallback(
     (interval: CandleInterval, signal: AbortSignal, indicators: readonly string[]) =>
       fetchTokenCandles(
@@ -131,6 +185,13 @@ export default function TokenAssetView({
       <bdi>{tokenTitle}</bdi>
     );
   const market = card?.facts.market.status === "ok" ? card.facts.market.value : null;
+  const currentPriceResponse = priceResponse?.mint === mint ? priceResponse : null;
+  const livePrice = currentPriceResponse?.market?.price_usd;
+  const displayPrice = livePrice ?? market?.price_usd ?? null;
+  const displayPriceAt =
+    livePrice !== null && livePrice !== undefined
+      ? currentPriceResponse?.fetched_at
+      : card?.checked_at;
   const copyMint = async () => {
     try {
       if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable");
@@ -183,7 +244,12 @@ export default function TokenAssetView({
           </div>
           {card && (
             <p className="mt-2 text-[12px] text-ink-2">
-              {market?.price_usd !== null && market?.price_usd !== undefined ? `Main pool price ${formatUsd(market.price_usd)} USD · ` : ""}
+              {displayPrice !== null && displayPriceAt && (
+                <>
+                  Main pool price {formatUsd(displayPrice)} USD · {priceStale ? "price from" : "updated"}{" "}
+                  <time dateTime={displayPriceAt}>{formatClock(displayPriceAt)}</time> ·{" "}
+                </>
+              )}
               Checked <time dateTime={card.checked_at}>{formatClock(card.checked_at)}</time>
             </p>
           )}
@@ -211,6 +277,8 @@ export default function TokenAssetView({
                   intervals={SOLANA_CANDLE_INTERVALS}
                   initialInterval="1h"
                   venueName="GeckoTerminal"
+                  ticks={priceTicks}
+                  showTradeCount={false}
                   emptyMessage="GeckoTerminal has no candles for this interval."
                   loadingMessage="Loading candles from GeckoTerminal…"
                   staleMessage={() => "GeckoTerminal could not be reached; showing its cached candle history."}

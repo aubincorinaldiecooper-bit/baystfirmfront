@@ -242,6 +242,14 @@ export interface TokenMarket {
   geckoterminal_liquidity_usd: number | null;
 }
 
+export interface TokenPriceResponse {
+  mint: string;
+  source: "dexscreener";
+  fetched_at: string;
+  stale: boolean;
+  market: TokenMarket | null;
+}
+
 export interface TokenLiquidityLock {
   pool_type: "launch_curve" | "lp_token" | "position_based" | "unknown";
   dex: string;
