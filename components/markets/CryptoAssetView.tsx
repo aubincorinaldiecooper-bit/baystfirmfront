@@ -10,6 +10,7 @@ import { useWorkspace } from "@/components/finance/workspace";
 import { watchlistAlertsEnabled } from "@/lib/markets/features";
 import { formatClock, formatQuote, horizonLabel, venueLabel } from "@/lib/markets/labels";
 import { groupInstrumentsByBase, preferredInstrument } from "@/lib/markets/instruments";
+import { stablecoinReferenceLines } from "@/lib/markets/stablecoins";
 import { classificationsFor, instrumentKey, instrumentRows, type InstrumentRow } from "@/lib/markets/state";
 import { useWatchlist } from "@/lib/markets/useWatchlist";
 import type { DerivativeState } from "@/lib/markets/state";
@@ -107,6 +108,7 @@ export default function CryptoAssetView({
     rows[0]?.key ??
     null;
   const selectedRow = rows.find((row) => row.key === selected);
+  const referenceLines = stablecoinReferenceLines(base, selectedRow?.last.quote_asset);
   const snapshotSymbols = snapshot?.symbols ?? EMPTY_MARKET_NAMES;
   const knownBase = rows.length > 0 || snapshotSymbols.some((symbol) => baseOf(symbol) === base);
   const venueNames = snapshot?.enabled_venues ?? EMPTY_MARKET_NAMES;
@@ -229,6 +231,7 @@ export default function CryptoAssetView({
                   venue={selectedRow?.venue ?? null}
                   symbol={selectedRow?.symbol ?? null}
                   ticks={selected ? state.ticks[selected] ?? [] : []}
+                  referenceLines={referenceLines}
                 />
               </Section>
               <div className="mt-6 flex flex-wrap gap-2" role="tablist" aria-label={`${base} market data`}>

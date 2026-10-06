@@ -157,13 +157,13 @@ describe("CryptoAssetView browser-only watchlist and alerts", () => {
       </MarketHarness>,
     );
     const section = screen.getByRole("region", { name: /Venues/ });
-    const krakenRow = within(section).getByRole("row", { name: /kraken/ });
-    expect(within(section).getByRole("row", { name: /coinbase/ }).getAttribute("aria-selected")).toBe("true");
+    const krakenRow = within(section).getByRole("row", { name: /Kraken/ });
+    expect(within(section).getByRole("row", { name: /Coinbase/ }).getAttribute("aria-selected")).toBe("true");
     expect(krakenRow.getAttribute("aria-selected")).toBe("false");
 
-    fireEvent.click(screen.getByRole("button", { name: "kraken · BTC-USD" }));
-    fireEvent.click(screen.getByRole("button", { name: "Add BTC-USD on kraken to watchlist" }));
-    expect(screen.getByRole("button", { name: "Remove BTC-USD on kraken from watchlist" }).getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "Kraken · BTC-USD" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add BTC-USD on Kraken to watchlist" }));
+    expect(screen.getByRole("button", { name: "Remove BTC-USD on Kraken from watchlist" }).getAttribute("aria-pressed")).toBe("true");
     expect(localStorage.getItem("baystfirm.markets.watchlist.v1")).toBe(JSON.stringify(["kraken|BTC-USD"]));
     expect(krakenRow.getAttribute("aria-selected")).toBe("true");
   });
@@ -181,9 +181,9 @@ describe("CryptoAssetView browser-only watchlist and alerts", () => {
       </MarketHarness>,
     );
     const section = screen.getByRole("region", { name: /Venues/ });
-    expect(within(section).getByRole("row", { name: /kraken/ }).getAttribute("aria-selected")).toBe("true");
-    fireEvent.click(within(section).getByRole("row", { name: /coinbase/ }));
-    expect(within(section).getByRole("row", { name: /coinbase/ }).getAttribute("aria-selected")).toBe("true");
+    expect(within(section).getByRole("row", { name: /Kraken/ }).getAttribute("aria-selected")).toBe("true");
+    fireEvent.click(within(section).getByRole("row", { name: /Coinbase/ }));
+    expect(within(section).getByRole("row", { name: /Coinbase/ }).getAttribute("aria-selected")).toBe("true");
   });
 
   it("filters venues to the selected base and switches market tabs", () => {
@@ -224,7 +224,7 @@ describe("CryptoAssetView browser-only watchlist and alerts", () => {
         <HistorySidebar history={emptyHistory} onNavigate={onNavigate} />
       </MarketHarness>,
     );
-    fireEvent.click(screen.getByRole("button", { name: "BTC-USD · coinbase" }));
+    fireEvent.click(screen.getByRole("button", { name: "BTC-USD · Coinbase" }));
     expect(navigation.push).toHaveBeenCalledWith("/crypto/BTC?instrument=coinbase%7CBTC-USD");
     expect(onNavigate).toHaveBeenCalledOnce();
   });
@@ -238,8 +238,8 @@ describe("CryptoAssetView browser-only watchlist and alerts", () => {
         </>
       </MarketHarness>,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Add BTC-USD on coinbase to watchlist" }));
-    expect(await screen.findByRole("button", { name: "BTC-USD · coinbase" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Add BTC-USD on Coinbase to watchlist" }));
+    expect(await screen.findByRole("button", { name: "BTC-USD · Coinbase" })).toBeTruthy();
   });
 
   it("adds a price rule and shows its firing after streamed prices cross the threshold", async () => {
@@ -259,7 +259,7 @@ describe("CryptoAssetView browser-only watchlist and alerts", () => {
       );
     });
 
-    expect(await screen.findByText("BTC-USD on coinbase last price crossed above 100.000.")).toBeTruthy();
+    expect(await screen.findByText("BTC-USD on Coinbase last price crossed above 100.000.")).toBeTruthy();
     expect(screen.getByText(/Observed 101\.000 · Source price-cross-event/)).toBeTruthy();
   });
 
@@ -279,6 +279,6 @@ describe("CryptoAssetView browser-only watchlist and alerts", () => {
         <HistorySidebar history={emptyHistory} />
       </MarketHarness>,
     );
-    expect(screen.queryByRole("button", { name: "BTC-USD · coinbase" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "BTC-USD · Coinbase" })).toBeNull();
   });
 });

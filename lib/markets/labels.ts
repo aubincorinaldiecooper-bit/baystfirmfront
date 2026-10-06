@@ -10,6 +10,10 @@ export const CLASSIFIER_NAMES: Record<string, string> = {
 
 const VENUE_NAMES: Record<string, string> = {
   binanceus: "Binance.US",
+  coinbase: "Coinbase",
+  kraken: "Kraken",
+  bybit: "Bybit",
+  okx: "OKX",
 };
 
 export const venueLabel = (venue: string) => VENUE_NAMES[venue] ?? venue;

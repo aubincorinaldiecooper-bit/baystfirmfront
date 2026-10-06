@@ -95,7 +95,7 @@ describe("TrackRecordPanel", () => {
     const row = screen.getByText("1h").closest("tr") as HTMLElement;
     expect(within(row).getByText("Right 70.0% of 400")).toBeTruthy();
     expect(within(row).getByText("Better than always Neutral")).toBeTruthy();
-    expect(screen.getByText(/BTC-USD \(coinbase\)/)).toBeTruthy();
+    expect(screen.getByText(/BTC-USD \(Coinbase\)/)).toBeTruthy();
     expect(screen.getByText("Reading…")).toBeTruthy();
   });
 });

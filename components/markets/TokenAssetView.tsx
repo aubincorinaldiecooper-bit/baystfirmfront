@@ -46,33 +46,67 @@ export default function TokenAssetView({
   const [card, setCard] = useState<TokenCard | null>(null);
   const [error, setError] = useState<MarketsError | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshFailed, setRefreshFailed] = useState(false);
   const [copyState, setCopyState] = useState<"idle" | "copied" | "unavailable">("idle");
   const validMint = SOLANA_MINT.test(mint);
 
   useEffect(() => {
     const controller = new AbortController();
+    let active = true;
+    let refreshing = false;
     setCard(null);
     setError(null);
+    setRefreshFailed(false);
     setCopyState("idle");
     if (!validMint) {
       setError(new MarketsError("That address is not a Solana token mint.", 400, "INVALID_MINT"));
       setLoading(false);
-      return () => controller.abort();
+      return () => {
+        active = false;
+        controller.abort();
+      };
     }
     setLoading(true);
     fetchTokenCard(mint, fetchImpl, controller.signal)
       .then((value) => {
+        if (!active) return;
         setCard(value);
         setError(null);
       })
       .catch((cause: unknown) => {
-        if (controller.signal.aborted || (cause instanceof Error && cause.name === "AbortError")) return;
+        if (!active || controller.signal.aborted || (cause instanceof Error && cause.name === "AbortError")) return;
         setError(cause instanceof MarketsError ? cause : new MarketsError("The crypto backend could not be read.", 0, "BAD_RESPONSE"));
       })
       .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
+        if (active && !controller.signal.aborted) setLoading(false);
       });
-    return () => controller.abort();
+    const refresh = async () => {
+      if (!active || document.visibilityState !== "visible" || refreshing) return;
+      refreshing = true;
+      try {
+        const value = await fetchTokenCard(mint, fetchImpl, controller.signal);
+        if (!active) return;
+        setCard(value);
+        setError(null);
+        setRefreshFailed(false);
+      } catch (cause: unknown) {
+        if (!active || controller.signal.aborted || (cause instanceof Error && cause.name === "AbortError")) return;
+        setRefreshFailed(true);
+      } finally {
+        refreshing = false;
+      }
+    };
+    const timer = window.setInterval(() => void refresh(), 60_000);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") void refresh();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      active = false;
+      controller.abort();
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
   }, [fetchImpl, mint, validMint]);
 
   const loadCandles = useCallback(
@@ -152,6 +186,11 @@ export default function TokenAssetView({
               {market?.price_usd !== null && market?.price_usd !== undefined ? `Main pool price ${formatUsd(market.price_usd)} USD · ` : ""}
               Checked <time dateTime={card.checked_at}>{formatClock(card.checked_at)}</time>
             </p>
+          )}
+          {card && refreshFailed && (
+            <div className="mt-2">
+              <Notice kind="warn" role="status" title={`Couldn't refresh; showing facts from ${formatClock(card.checked_at)}.`} />
+            </div>
           )}
           {error && (
             <div className="mt-5">
