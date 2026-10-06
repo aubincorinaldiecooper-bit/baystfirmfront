@@ -18,7 +18,7 @@ import {
   type UTCTimestamp,
 } from "lightweight-charts";
 import { useEffect, useRef, useState } from "react";
-import { formatQuote } from "@/lib/markets/labels";
+import { candlePriceFormat, candlePricePrecision, formatCandlePrice } from "@/lib/markets/chartPrices";
 import type { ChartLine, IndicatorPane } from "@/lib/markets/indicators";
 import type { CandleBar } from "@/lib/markets/types";
 
@@ -41,7 +41,6 @@ function resolveColor(variable: string): string {
   return `rgba(${r}, ${g}, ${b}, ${(a / 255).toFixed(3)})`;
 }
 
-const QUOTE_FORMAT = { type: "custom", formatter: (value: number) => formatQuote(value), minMove: 0.00001 } as const;
 const RSI_FORMAT = { type: "price", precision: 1, minMove: 0.1 } as const;
 /* MACD is in quote units and spans from ~1e-5 (low-priced coins) to hundreds (BTC). */
 const MACD_FORMAT = {
@@ -50,8 +49,8 @@ const MACD_FORMAT = {
   minMove: 0.00000001,
 } as const;
 
-function paneFormat(pane: IndicatorPane) {
-  return pane === "rsi" ? RSI_FORMAT : pane === "macd" ? MACD_FORMAT : QUOTE_FORMAT;
+function paneFormat(pane: IndicatorPane, precision: number) {
+  return pane === "rsi" ? RSI_FORMAT : pane === "macd" ? MACD_FORMAT : candlePriceFormat(precision);
 }
 
 function formatBarTime(seconds: number): string {
@@ -103,6 +102,7 @@ export default function TradingChart({
   const lineSeriesRef = useRef(new Map<string, ISeriesApi<SeriesType>>());
   const shownCandlesRef = useRef<CandleBar[]>([]);
   const [hover, setHover] = useState<Readout | null>(null);
+  const pricePrecision = candlePricePrecision(candles);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -122,7 +122,10 @@ export default function TradingChart({
         timeFormatter: (time: Time) => formatBarTime(Number(time)),
       },
     });
-    const candleSeries = chart.addSeries(CandlestickSeries, { borderVisible: false, priceFormat: QUOTE_FORMAT });
+    const candleSeries = chart.addSeries(CandlestickSeries, {
+      borderVisible: false,
+      priceFormat: candlePriceFormat(5),
+    });
     const onCrosshairMove = (param: MouseEventParams) => {
       if (param.time === undefined || !param.point) {
         setHover(null);
@@ -178,6 +181,7 @@ export default function TradingChart({
     const chart = chartRef.current;
     const candleSeries = candleSeriesRef.current;
     if (!chart || !candleSeries) return;
+    candleSeries.applyOptions({ priceFormat: candlePriceFormat(pricePrecision) });
     const previous = shownCandlesRef.current;
     if (continuesHistory(previous, candles)) {
       for (const candle of candles.slice(previous.length - 1)) candleSeries.update(toBar(candle));
@@ -186,7 +190,7 @@ export default function TradingChart({
       chart.timeScale().scrollToRealTime();
     }
     shownCandlesRef.current = candles;
-  }, [candles]);
+  }, [candles, pricePrecision]);
 
   useEffect(() => {
     const chart = chartRef.current;
@@ -256,7 +260,7 @@ export default function TradingChart({
           priceLineVisible: false,
           lastValueVisible: true,
           crosshairMarkerVisible: false,
-          priceFormat: paneFormat(line.pane),
+          priceFormat: paneFormat(line.pane, pricePrecision),
           title: line.pane === "price" ? "" : line.label,
         },
         paneIndex,
@@ -271,7 +275,7 @@ export default function TradingChart({
       registry.set(line.id, series);
     }
     chart.panes().forEach((pane, index) => pane.setStretchFactor(index === 0 ? PRICE_PANE_HEIGHT : SUB_PANE_HEIGHT));
-  }, [lines, dark, referenceLines]);
+  }, [lines, dark, pricePrecision, referenceLines]);
 
   const last = candles[candles.length - 1];
   const bar = hover?.bar ?? (last ? { open: last.open, high: last.high, low: last.low, close: last.close } : null);
@@ -283,16 +287,18 @@ export default function TradingChart({
       <div ref={containerRef} className="absolute inset-0" />
       {bar && (
         <div className="pointer-events-none absolute left-2 top-1 z-10 flex flex-wrap gap-x-3 gap-y-0.5 font-mono text-[11px] tabular-nums text-ink-2">
-          <span>O {formatQuote(bar.open)}</span>
-          <span>H {formatQuote(bar.high)}</span>
-          <span>L {formatQuote(bar.low)}</span>
-          <span className={bar.close >= bar.open ? "text-green" : "text-red"}>C {formatQuote(bar.close)}</span>
+          <span>O {formatCandlePrice(bar.open, pricePrecision)}</span>
+          <span>H {formatCandlePrice(bar.high, pricePrecision)}</span>
+          <span>L {formatCandlePrice(bar.low, pricePrecision)}</span>
+          <span className={bar.close >= bar.open ? "text-green" : "text-red"}>
+            C {formatCandlePrice(bar.close, pricePrecision)}
+          </span>
           {lines
             .filter((line) => line.pane === "price")
             .map((line) => (
               <span key={line.id} className="inline-flex items-center gap-1">
                 <span className="inline-block size-2 rounded-full" style={{ background: `var(${line.color})` }} />
-                {line.label} {formatQuote(readoutValue(line))}
+                {line.label} {formatCandlePrice(readoutValue(line), pricePrecision)}
               </span>
             ))}
         </div>

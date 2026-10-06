@@ -9,7 +9,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import CandleChartPanel, { type CandleLoader } from "@/components/markets/CandleChartPanel";
 import LiveChart from "@/components/markets/LiveChart";
-import { chartPanes, continuesHistory } from "@/components/markets/TradingChart";
+import TradingChart, { chartPanes, continuesHistory } from "@/components/markets/TradingChart";
 import { fetchCandles, fetchTokenCandles } from "@/lib/markets/client";
 import { chartLines, indicatorPoints } from "@/lib/markets/indicators";
 import { stablecoinReferenceLines } from "@/lib/markets/stablecoins";
@@ -128,6 +128,105 @@ describe("fetchCandles", () => {
 });
 
 describe("shared token candlestick panel", () => {
+  it("uses candle-derived precision for sub-cent prices in the legend and series", async () => {
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
+    chartMock.chart.addSeries.mockClear();
+    const tinyCandle: CandleBar = {
+      open_time: 180_000,
+      open: 0.00000377,
+      high: 0.00000388,
+      low: 0.00000377,
+      close: 0.00000378,
+      volume: 1,
+    };
+
+    render(
+      <TradingChart
+        candles={[tinyCandle]}
+        lines={[]}
+        dark={false}
+        emptyText={null}
+        ariaLabel="Tiny-price test chart"
+      />,
+    );
+
+    expect(screen.getByText("O 0.000003770")).toBeTruthy();
+    expect(screen.getByText("H 0.000003880")).toBeTruthy();
+    expect(screen.getByText("C 0.000003780")).toBeTruthy();
+    const series = chartMock.chart.addSeries.mock.results[0]?.value as {
+      applyOptions: ReturnType<typeof vi.fn>;
+    };
+    await waitFor(() =>
+      expect(series.applyOptions).toHaveBeenCalledWith(
+        expect.objectContaining({
+          priceFormat: { type: "price", precision: 9, minMove: 0.000000001 },
+        }),
+      ),
+    );
+  });
+
+  it("keeps the candle panel live price at the loaded candle precision", async () => {
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
+    const loadCandles = vi.fn<CandleLoader>(async () =>
+      response({
+        venue: "geckoterminal",
+        symbol: "BONK",
+        candles: [
+          {
+            open_time: 180_000,
+            open: 0.00000377,
+            high: 0.00000388,
+            low: 0.00000377,
+            close: 0.00000378,
+            volume: 1,
+          },
+        ],
+      }),
+    );
+
+    render(
+      <CandleChartPanel
+        title="BONK in USD"
+        venue="geckoterminal"
+        symbol="BONK"
+        loadCandles={loadCandles}
+        ticks={[{ time: 180, value: 0.00000377 }]}
+      />,
+    );
+
+    expect(await screen.findByText("0.000003770")).toBeTruthy();
+  });
+
+  it("keeps USDT and BTC OHLC legend precision unchanged", () => {
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
+    const stablecoin: CandleBar = {
+      open_time: 180_000,
+      open: 0.99968,
+      high: 0.99971,
+      low: 0.99965,
+      close: 0.99968,
+      volume: 1,
+    };
+    chartMock.chart.addSeries.mockClear();
+    const stablecoinChart = render(
+      <TradingChart candles={[stablecoin]} lines={[]} dark={false} emptyText={null} ariaLabel="USDT test chart" />,
+    );
+    expect(screen.getByText("O 0.99968")).toBeTruthy();
+    stablecoinChart.unmount();
+
+    const bitcoin: CandleBar = {
+      open_time: 180_000,
+      open: 85_505.91,
+      high: 85_506.42,
+      low: 85_504.2,
+      close: 85_505.91,
+      volume: 1,
+    };
+    chartMock.chart.addSeries.mockClear();
+    render(<TradingChart candles={[bitcoin]} lines={[]} dark={false} emptyText={null} ariaLabel="BTC test chart" />);
+    expect(screen.getByText("O 85,505.91")).toBeTruthy();
+  });
+
   it("hides stablecoin indicators without requesting them and keeps BTC controls visible", async () => {
     vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
     const loadCandles = vi.fn<CandleLoader>(async () => response({ symbol: "USDT-USD" }));

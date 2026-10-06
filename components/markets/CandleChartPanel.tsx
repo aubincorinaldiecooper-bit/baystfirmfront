@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { mergeTradeIntoCurrentCandle } from "@/lib/markets/candles";
+import { candlePricePrecision, formatCandlePrice } from "@/lib/markets/chartPrices";
 import { INDICATOR_OPTIONS, chartLines } from "@/lib/markets/indicators";
-import { formatClock, formatQuote } from "@/lib/markets/labels";
+import { formatClock } from "@/lib/markets/labels";
 import type { Tick } from "@/lib/markets/state";
 import { CANDLE_INTERVALS, type CandleInterval, type CandleResponse } from "@/lib/markets/types";
 import TradingChart from "./TradingChart";
@@ -99,6 +100,7 @@ export default function CandleChartPanel({
     () => mergeTradeIntoCurrentCandle(response?.candles ?? [], ticks, interval),
     [interval, response, ticks],
   );
+  const pricePrecision = candlePricePrecision(mergedCandles);
   const lines = useMemo(() => chartLines(response, requestIndicators), [requestIndicators, response]);
   const toggleIndicator = (spec: string) =>
     setIndicators((current) =>
@@ -116,7 +118,9 @@ export default function CandleChartPanel({
       <div className="mb-2 flex items-baseline justify-between gap-3">
         <span className="text-[13.5px] font-medium text-ink">{title}</span>
         {showLastPrice && (
-          <span className="font-mono text-[13px] tabular-nums text-ink-2">{lastTick ? formatQuote(lastTick.value) : "—"}</span>
+          <span className="font-mono text-[13px] tabular-nums text-ink-2">
+            {lastTick ? formatCandlePrice(lastTick.value, pricePrecision) : "—"}
+          </span>
         )}
       </div>
       <div className="mb-2 flex flex-wrap gap-1" role="group" aria-label="Candle interval">
