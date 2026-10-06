@@ -8,6 +8,8 @@ import type { Tick } from "@/lib/markets/state";
 import { CANDLE_INTERVALS, type CandleInterval, type CandleResponse } from "@/lib/markets/types";
 import TradingChart from "./TradingChart";
 
+const EMPTY_INDICATORS: string[] = [];
+
 export type CandleLoader = (
   interval: CandleInterval,
   signal: AbortSignal,
@@ -28,6 +30,7 @@ export default function CandleChartPanel({
   staleMessage,
   attribution,
   referenceLines,
+  showIndicators = true,
   showTradeCount = false,
   showLastPrice = true,
   ariaLabel,
@@ -45,6 +48,7 @@ export default function CandleChartPanel({
   staleMessage?: (response: CandleResponse) => ReactNode;
   attribution?: (response: CandleResponse) => ReactNode;
   referenceLines?: readonly { price: number; title: string }[];
+  showIndicators?: boolean;
   showTradeCount?: boolean;
   showLastPrice?: boolean;
   ariaLabel?: string;
@@ -55,9 +59,14 @@ export default function CandleChartPanel({
   const initial = availableIntervals.includes(initialInterval) ? initialInterval : availableIntervals[0] ?? "1m";
   const [interval, setCandleInterval] = useState<CandleInterval>(initial);
   const [indicators, setIndicators] = useState<string[]>([]);
+  const requestIndicators = showIndicators ? indicators : EMPTY_INDICATORS;
   const [response, setResponse] = useState<CandleResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!showIndicators) setIndicators([]);
+  }, [showIndicators]);
 
   useEffect(() => {
     if (!loadCandles) {
@@ -71,7 +80,7 @@ export default function CandleChartPanel({
     setResponse(null);
     setError(null);
     setLoading(true);
-    loadCandles(interval, controller.signal, indicators)
+    loadCandles(interval, controller.signal, requestIndicators)
       .then(setResponse)
       .catch((cause: unknown) => {
         if (!active || (cause instanceof Error && cause.name === "AbortError")) return;
@@ -84,13 +93,13 @@ export default function CandleChartPanel({
       active = false;
       controller.abort();
     };
-  }, [indicators, interval, loadCandles]);
+  }, [interval, loadCandles, requestIndicators]);
 
   const mergedCandles = useMemo(
     () => mergeTradeIntoCurrentCandle(response?.candles ?? [], ticks, interval),
     [interval, response, ticks],
   );
-  const lines = useMemo(() => chartLines(response, indicators), [indicators, response]);
+  const lines = useMemo(() => chartLines(response, requestIndicators), [requestIndicators, response]);
   const toggleIndicator = (spec: string) =>
     setIndicators((current) =>
       current.includes(spec) ? current.filter((item) => item !== spec) : [...current, spec],
@@ -123,24 +132,26 @@ export default function CandleChartPanel({
           </button>
         ))}
       </div>
-      <div className="mb-2 flex flex-wrap gap-1" role="group" aria-label="Indicators">
-        {INDICATOR_OPTIONS.map((option) => (
-          <button
-            key={option.spec}
-            type="button"
-            aria-pressed={indicators.includes(option.spec)}
-            onClick={() => toggleIndicator(option.spec)}
-            className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] ${
-              indicators.includes(option.spec) ? "bg-ink text-surface" : "bg-surface text-ink-2 hover:bg-hover-2"
-            }`}
-          >
-            {option.pane === "price" && (
-              <span className="inline-block size-2 rounded-full" style={{ background: `var(${option.color})` }} />
-            )}
-            {option.label}
-          </button>
-        ))}
-      </div>
+      {showIndicators && (
+        <div className="mb-2 flex flex-wrap gap-1" role="group" aria-label="Indicators">
+          {INDICATOR_OPTIONS.map((option) => (
+            <button
+              key={option.spec}
+              type="button"
+              aria-pressed={indicators.includes(option.spec)}
+              onClick={() => toggleIndicator(option.spec)}
+              className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] ${
+                indicators.includes(option.spec) ? "bg-ink text-surface" : "bg-surface text-ink-2 hover:bg-hover-2"
+              }`}
+            >
+              {option.pane === "price" && (
+                <span className="inline-block size-2 rounded-full" style={{ background: `var(${option.color})` }} />
+              )}
+              {option.label}
+            </button>
+          ))}
+        </div>
+      )}
       <TradingChart
         candles={mergedCandles}
         lines={lines}
@@ -172,7 +183,7 @@ export default function CandleChartPanel({
               : noCandles}
         </p>
       )}
-      {response && indicators.length > 0 && (
+      {response && requestIndicators.length > 0 && (
         <p className="mt-1 text-[11.5px] text-ink-3">
           Indicators computed by the Baystfirm backend from these candles when fetched; each starts blank until it has enough bars and does not move with the live candle.
         </p>

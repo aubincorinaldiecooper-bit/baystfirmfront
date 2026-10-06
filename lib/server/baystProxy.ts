@@ -51,6 +51,15 @@ function upstreamPathFor(pathSegments: string[]): string | undefined {
   ) {
     return `v1/solana/tokens/${mint}/candles`;
   }
+  if (
+    pathSegments.length === 4 &&
+    chain === "solana" &&
+    kind === "tokens" &&
+    SOLANA_MINT.test(mint) &&
+    resource === "price"
+  ) {
+    return `v1/solana/tokens/${mint}/price`;
+  }
   return undefined;
 }
 
@@ -108,6 +117,8 @@ export async function proxyMarketsRequest(request: Request, pathSegments: string
   }
   const isNewsRoute = upstreamPath === "v1/news";
   const isFilingsRoute = upstreamPath === "v1/news/filings";
+  const isSolanaPriceRoute =
+    upstreamPath.startsWith("v1/solana/tokens/") && upstreamPath.endsWith("/price");
   let normalizedTickers: string | null = null;
   if (isNewsRoute) {
     const symbols = requestUrl.searchParams.getAll("symbol");
@@ -151,6 +162,7 @@ export async function proxyMarketsRequest(request: Request, pathSegments: string
 
   const search = new URLSearchParams();
   for (const [name, value] of requestUrl.searchParams) {
+    if (isSolanaPriceRoute) continue;
     if (name === "q" && upstreamPath === "v1/solana/search") continue;
     if (name === "tickers" && isFilingsRoute) continue;
     if (FORWARDED_QUERY.has(name)) search.set(name, value);

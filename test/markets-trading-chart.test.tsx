@@ -7,7 +7,7 @@
  */
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import CandleChartPanel from "@/components/markets/CandleChartPanel";
+import CandleChartPanel, { type CandleLoader } from "@/components/markets/CandleChartPanel";
 import LiveChart from "@/components/markets/LiveChart";
 import { chartPanes, continuesHistory } from "@/components/markets/TradingChart";
 import { fetchCandles, fetchTokenCandles } from "@/lib/markets/client";
@@ -128,6 +128,32 @@ describe("fetchCandles", () => {
 });
 
 describe("shared token candlestick panel", () => {
+  it("hides stablecoin indicators without requesting them and keeps BTC controls visible", async () => {
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
+    const loadCandles = vi.fn<CandleLoader>(async () => response({ symbol: "USDT-USD" }));
+    const stablecoin = render(
+      <CandleChartPanel
+        title="USDT-USD"
+        venue="coinbase"
+        symbol="USDT-USD"
+        loadCandles={loadCandles}
+        showIndicators={false}
+      />,
+    );
+    await waitFor(() => expect(loadCandles).toHaveBeenCalledTimes(1));
+    expect(loadCandles.mock.calls[0]?.[2]).toEqual([]);
+    expect(screen.queryByRole("group", { name: "Indicators" })).toBeNull();
+    expect(screen.getByText(/^O /)).toBeTruthy();
+    expect(screen.getByText(/^H /)).toBeTruthy();
+    expect(screen.getByText(/^L /)).toBeTruthy();
+    expect(screen.getByText(/^C /)).toBeTruthy();
+
+    stablecoin.unmount();
+    render(<CandleChartPanel title="BTC-USD" venue="coinbase" symbol="BTC-USD" />);
+    expect(screen.getByRole("group", { name: "Indicators" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "RSI 14" })).toBeTruthy();
+  });
+
   it("uses token intervals, forwards interval changes, and retains GeckoTerminal attribution", async () => {
     vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
     const loadCandles = vi.fn(async (interval: CandleInterval) =>

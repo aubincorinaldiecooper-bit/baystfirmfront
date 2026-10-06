@@ -6,8 +6,8 @@
 - Company-research charts (price history, quarterly figures) and key stats show only values the backend retrieved through web search, with the page each came from. An empty chart states that web search found no page with that data. Never present it as switched off.
 - Everything the UI shows comes from recorded backend events or result fields: no fake data, no
   simulated progress, or timers driving state. The Home News & events panel may refresh every 60
-  seconds while the tab is visible. An open Solana token page may refresh its existing token card
-  every 60 seconds while the tab is visible.
+  seconds while the tab is visible. Visible Solana token pages refresh facts every 60 seconds and
+  the DexScreener main-pool price every 10 seconds.
 - `BAY_API_KEY` stays on the server (the `/api/bay` proxy); nothing client-side reads it.
 - Owner-approved market source: Home (`/`), crypto detail (`/crypto/*`), and Solana token pages
   (`/tokens/*`) read only Baystfirm through the server-side `/api/markets` proxy; `BAYST_API_KEY`

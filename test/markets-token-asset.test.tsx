@@ -4,7 +4,14 @@ import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import TokenAssetView from "@/components/markets/TokenAssetView";
 import * as marketsClient from "@/lib/markets/client";
-import type { NewsFeed, NewsItem, TokenCard, TokenFact, TokenLiquidityLock } from "@/lib/markets/types";
+import type {
+  NewsFeed,
+  NewsItem,
+  TokenCard,
+  TokenFact,
+  TokenLiquidityLock,
+  TokenPriceResponse,
+} from "@/lib/markets/types";
 
 vi.mock("next/image", () => ({
   default: ({ alt, src }: { alt: string; src: string }) => <div role="img" aria-label={alt} data-src={src} />,
@@ -13,12 +20,32 @@ vi.mock("@/components/finance/PageHeader", () => ({
   default: ({ title }: { title: ReactNode }) => <header>{title}</header>,
 }));
 vi.mock("@/components/markets/CandleChartPanel", () => ({
-  default: ({ title }: { title: ReactNode }) => <div aria-label="Token candlestick panel">{title}</div>,
+  default: ({
+    title,
+    ticks = [],
+    showLastPrice,
+    showTradeCount,
+  }: {
+    title: ReactNode;
+    ticks?: { time: number; value: number }[];
+    showLastPrice?: boolean;
+    showTradeCount?: boolean;
+  }) => (
+    <div
+      aria-label="Token candlestick panel"
+      data-tick-count={ticks.length}
+      data-show-last-price={String(showLastPrice)}
+      data-show-trade-count={String(showTradeCount)}
+    >
+      {title}
+    </div>
+  ),
 }));
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
   Object.defineProperty(navigator, "clipboard", { configurable: true, value: undefined });
+  Object.defineProperty(document, "visibilityState", { configurable: true, value: "visible" });
   vi.restoreAllMocks();
 });
 
@@ -85,11 +112,35 @@ const tokenCard: TokenCard = {
   },
 };
 
+function tokenPrice(
+  price: number | null,
+  fetchedAt = "2026-10-04T17:00:00Z",
+  stale = false,
+): TokenPriceResponse {
+  const market = tokenCard.facts.market.value;
+  return {
+    mint: MINT,
+    source: "dexscreener",
+    fetched_at: fetchedAt,
+    stale,
+    market: market ? { ...market, price_usd: price } : null,
+  };
+}
+
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": "application/json" },
+  });
+}
+
 describe("TokenAssetView", () => {
   it("renders upstream names in bidi isolation, token identity, and copy feedback", async () => {
     const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
-      expect(String(input)).toBe(`/api/markets/solana/tokens/${MINT}`);
-      return new Response(JSON.stringify(tokenCard), { status: 200, headers: { "content-type": "application/json" } });
+      const url = String(input);
+      if (url.endsWith("/price")) return jsonResponse(tokenPrice(0.00002));
+      expect(url).toBe(`/api/markets/solana/tokens/${MINT}`);
+      return jsonResponse(tokenCard);
     });
     const writeText = vi.fn(async () => {});
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
@@ -110,6 +161,8 @@ describe("TokenAssetView", () => {
     expect(screen.queryByText("Pool, not counted")).toBeNull();
     expect(screen.getByText(/8 pools · total liquidity/)).toBeTruthy();
     expect(screen.getByText("Second opinion: RugCheck")).toBeTruthy();
+    expect(screen.getByLabelText("Token candlestick panel").getAttribute("data-show-last-price")).toBe("false");
+    expect(screen.getByLabelText("Token candlestick panel").getAttribute("data-show-trade-count")).toBe("false");
 
     fireEvent.click(screen.getByRole("button", { name: "Copy mint address" }));
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(MINT));
@@ -125,22 +178,108 @@ describe("TokenAssetView", () => {
 
   it("refreshes facts after 60 seconds and keeps the previous card when refresh fails", async () => {
     vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
-    const fetchImpl = vi
-      .fn()
-      .mockResolvedValueOnce(new Response(JSON.stringify(tokenCard), { status: 200, headers: { "content-type": "application/json" } }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ error: { message: "Refresh unavailable." } }), { status: 503, headers: { "content-type": "application/json" } }));
+    let cardCalls = 0;
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input).endsWith("/price")) return jsonResponse(tokenPrice(0.00002));
+      cardCalls += 1;
+      return cardCalls === 1
+        ? jsonResponse(tokenCard)
+        : jsonResponse({ error: { message: "Refresh unavailable." } }, 503);
+    });
     render(<TokenAssetView mint={MINT} fetchImpl={fetchImpl as unknown as typeof fetch} />);
 
     expect(await screen.findByText(/Main pool price \$0\.00002 USD/)).toBeTruthy();
-    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(cardCalls).toBe(1);
     await act(async () => {
       await vi.advanceTimersByTimeAsync(60_000);
     });
 
-    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(cardCalls).toBe(2);
     expect(screen.getByText(/Main pool price \$0\.00002 USD/)).toBeTruthy();
     expect(screen.getByText("Couldn't refresh; showing facts from 17:00:00 UTC.")).toBeTruthy();
     expect(screen.queryByText("Reading token facts from the Baystfirm backend…")).toBeNull();
+  });
+
+  it("polls DexScreener price every 10 seconds while visible and charts successful ticks", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    let priceCalls = 0;
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input).endsWith("/price")) {
+        priceCalls += 1;
+        return jsonResponse(
+          priceCalls === 1
+            ? tokenPrice(0.00003, "2026-10-04T17:00:10Z")
+            : tokenPrice(0.00004, "2026-10-04T17:00:20Z"),
+        );
+      }
+      return jsonResponse(tokenCard);
+    });
+    render(<TokenAssetView mint={MINT} fetchImpl={fetchImpl as unknown as typeof fetch} />);
+
+    expect(await screen.findByText(/Main pool price \$0\.00003 USD/)).toBeTruthy();
+    expect(screen.getByText("17:00:10 UTC").closest("p")?.textContent).toContain("updated");
+    expect(screen.getByLabelText("Token candlestick panel").getAttribute("data-tick-count")).toBe("1");
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+    });
+
+    expect(priceCalls).toBe(2);
+    expect(screen.getByText(/Main pool price \$0\.00004 USD/)).toBeTruthy();
+    expect(screen.getByText("17:00:20 UTC").closest("p")?.textContent).toContain("updated");
+    expect(screen.getByLabelText("Token candlestick panel").getAttribute("data-tick-count")).toBe("2");
+  });
+
+  it("skips price polling while hidden and polls immediately when visible again", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    Object.defineProperty(document, "visibilityState", { configurable: true, value: "hidden" });
+    let priceCalls = 0;
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input).endsWith("/price")) {
+        priceCalls += 1;
+        return jsonResponse(tokenPrice(0.00003, "2026-10-04T17:00:10Z"));
+      }
+      return jsonResponse(tokenCard);
+    });
+    render(<TokenAssetView mint={MINT} fetchImpl={fetchImpl as unknown as typeof fetch} />);
+
+    expect(await screen.findByRole("heading", { name: "Token facts" })).toBeTruthy();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20_000);
+    });
+    expect(priceCalls).toBe(0);
+
+    Object.defineProperty(document, "visibilityState", { configurable: true, value: "visible" });
+    act(() => document.dispatchEvent(new Event("visibilitychange")));
+    await waitFor(() => expect(priceCalls).toBe(1));
+    await screen.findByText("17:00:10 UTC");
+    expect(screen.getByText("17:00:10 UTC").closest("p")?.textContent).toContain("updated");
+  });
+
+  it("keeps the last good price and labels it as old after a failed poll", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    let priceCalls = 0;
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input).endsWith("/price")) {
+        priceCalls += 1;
+        return priceCalls === 1
+          ? jsonResponse(tokenPrice(0.00003, "2026-10-04T17:00:10Z"))
+          : jsonResponse({ error: { message: "Price unavailable." } }, 503);
+      }
+      return jsonResponse(tokenCard);
+    });
+    render(<TokenAssetView mint={MINT} fetchImpl={fetchImpl as unknown as typeof fetch} />);
+
+    expect(await screen.findByText(/Main pool price \$0\.00003 USD/)).toBeTruthy();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+    });
+
+    expect(priceCalls).toBe(2);
+    expect(screen.getByText("17:00:10 UTC").closest("p")?.textContent).toContain(
+      "Main pool price $0.00003 USD · price from",
+    );
+    expect(screen.queryByText(/Price unavailable/)).toBeNull();
+    expect(screen.getByLabelText("Token candlestick panel").getAttribute("data-tick-count")).toBe("1");
   });
 
   it("shows mint-filtered token events beneath Token facts as plain text on the same asset page", async () => {
@@ -156,7 +295,9 @@ describe("TokenAssetView", () => {
       details: { before_usd: 100_000, after_usd: 40_000, symbol: "KNOB" },
     };
     const getNews = vi.spyOn(marketsClient, "getNews").mockResolvedValue({ ...EMPTY_NEWS, items: [event] });
-    const fetchImpl = vi.fn(async () => new Response(JSON.stringify(tokenCard), { status: 200, headers: { "content-type": "application/json" } }));
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) =>
+      String(input).endsWith("/price") ? jsonResponse(tokenPrice(0.00002)) : jsonResponse(tokenCard),
+    );
     render(<TokenAssetView mint={MINT} fetchImpl={fetchImpl as unknown as typeof fetch} />);
 
     const section = await screen.findByRole("region", { name: /^Token events/ });

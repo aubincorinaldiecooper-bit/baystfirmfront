@@ -149,6 +149,20 @@ describe("proxyMarketsRequest", () => {
     ]);
   });
 
+  it("forwards Solana token price without query parameters", async () => {
+    const { fetchImpl, calls } = upstream(() => new Response("{}", { status: 200 }));
+    const deps = { fetch: fetchImpl, config: CONFIG, session };
+    const mint = "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263";
+    await proxyMarketsRequest(
+      new Request(`http://l/api/markets/solana/tokens/${mint}/price?limit=10&interval=1h`),
+      ["solana", "tokens", mint, "price"],
+      deps,
+    );
+    expect(calls.map((call) => call.url)).toEqual([
+      `http://bayst.test/v1/solana/tokens/${mint}/price`,
+    ]);
+  });
+
   it("rejects invalid Solana search queries before calling upstream", async () => {
     const { fetchImpl, calls } = upstream(() => new Response("{}", { status: 200 }));
     const deps = { fetch: fetchImpl, config: CONFIG, session };
