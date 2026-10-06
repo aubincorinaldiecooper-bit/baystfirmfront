@@ -34,6 +34,7 @@ afterEach(() => {
 beforeEach(() => {
   nav.push.mockReset();
   localStorage.clear();
+  vi.stubEnv("NEXT_PUBLIC_FULL_HOME", "true");
   vi.stubEnv("NEXT_PUBLIC_WATCHLIST_ALERTS", "false");
   vi.spyOn(marketsClient, "getNews").mockResolvedValue(EMPTY_NEWS);
   vi.spyOn(marketsClient, "getFilings").mockResolvedValue(EMPTY_FILINGS);
@@ -91,13 +92,15 @@ function setup(
   analyses: AnalysisSummary[] = [],
   ui: ReactNode = <HomeView />,
   historyResponse?: () => Response,
+  latestEvents?: MarketEvent[],
 ) {
+  const events = latestEvents ?? [trade("coinbase", "BTC-USD", 100), trade("kraken", "BTC-USD", 99)];
   const snapshot: MarketsSnapshot = {
     generated_at: AT,
     shadow_mode: true,
     enabled_venues: ["coinbase", "kraken"],
-    symbols: ["BTC-USD"],
-    latest_events: [trade("coinbase", "BTC-USD", 100), trade("kraken", "BTC-USD", 99)],
+    symbols: [...new Set(events.map((event) => event.symbol))],
+    latest_events: events,
     latest_classifications: [],
   };
   const markets: UseMarketsResult = {
@@ -122,6 +125,72 @@ function setup(
 }
 
 describe("HomeView", () => {
+  it("shows the stablecoin board and filtered news by default without mounting the full Home", async () => {
+    vi.stubEnv("NEXT_PUBLIC_FULL_HOME", "false");
+    const getNews = vi.spyOn(marketsClient, "getNews").mockResolvedValue({
+      ...EMPTY_NEWS,
+      items: [
+        newsItem("release", "SEC release", "official", "2026-10-05T12:00:00Z"),
+        newsItem("token", "Solana token event", "token_event", "2026-10-05T13:00:00Z"),
+      ],
+    });
+    const now = new Date().toISOString();
+    const stablecoinEvents = [
+      { ...trade("coinbase", "USDC-USD", 0.9999), exchange_timestamp: now },
+      { ...trade("kraken", "USDC-USD", 1.0001), exchange_timestamp: now },
+      {
+        ...trade("kraken", "PYUSD-USD", 0.9999),
+        event_type: "book" as const,
+        price: null,
+        bid: 0.9998,
+        ask: 1,
+        bid_depth_10bps: 4_000_000,
+        ask_depth_10bps: 4_800_000,
+        exchange_timestamp: now,
+      },
+    ];
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ candles: [] }), { status: 200 }));
+    setup(fetchImpl as unknown as typeof fetch, [], <HomeView />, undefined, stablecoinEvents);
+
+    expect(screen.getByRole("heading", { name: "Stablecoins" })).toBeTruthy();
+    expect(
+      screen.getByText("Live stablecoin prices against $1 across exchanges. Measured prices only, not investment advice. No trading, wallets or custody."),
+    ).toBeTruthy();
+    const board = screen.getByRole("region", { name: /Stablecoins — live from exchanges/ });
+    expect(within(board).getByRole("link", { name: "USDC" })).toBeTruthy();
+    expect(within(board).getByText("$1.00000")).toBeTruthy();
+    const pyusdLink = within(board).getByRole("link", { name: "PYUSD" });
+    expect(pyusdLink.parentElement?.textContent).toContain("$0.99990");
+    const pyusdReading = within(board).getByText("Kraken $0.99990").closest("[title]");
+    expect(pyusdReading?.getAttribute("title")).toContain("order-book mid");
+    expect(within(board).getByText("Order-book depth ±0.1%: $8.8M")).toBeTruthy();
+    expect(screen.queryByRole("region", { name: /Stocks/ })).toBeNull();
+    expect(screen.queryByRole("region", { name: /Biggest moves/ })).toBeNull();
+    expect(screen.queryByRole("region", { name: /Crypto/ })).toBeNull();
+    expect(screen.queryByRole("region", { name: /New Solana tokens/ })).toBeNull();
+
+    const newsPanel = screen.getByRole("region", { name: /News & events/ });
+    expect(await within(newsPanel).findByText("SEC release")).toBeTruthy();
+    expect(within(newsPanel).queryByText("Solana token event")).toBeNull();
+    expect(getNews).toHaveBeenCalledWith({ limit: 30 }, fetchImpl, expect.any(AbortSignal));
+    expect(marketsClient.getFilings).not.toHaveBeenCalled();
+  });
+
+  it("shows stale exchange coverage when a stablecoin has no fresh USD reading", () => {
+    vi.stubEnv("NEXT_PUBLIC_FULL_HOME", "false");
+    const staleTrade = {
+      ...trade("coinbase", "DAI-USD", 1),
+      exchange_timestamp: new Date(Date.now() - 11 * 60_000).toISOString(),
+    };
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ candles: [] }), { status: 200 }));
+    setup(fetchImpl as unknown as typeof fetch, [], <HomeView />, undefined, [staleTrade]);
+
+    const board = screen.getByRole("region", { name: /Stablecoins — live from exchanges/ });
+    expect(within(board).getByRole("link", { name: "DAI" })).toBeTruthy();
+    expect(within(board).getByText("No fresh exchange price")).toBeTruthy();
+    expect(within(board).queryByText("One exchange · can't cross-check")).toBeNull();
+  });
+
   it("shows grouped crypto markets and the exact fresh-research empty state without a stock price", async () => {
     const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ candles: [] }), { status: 200 }));
     setup(fetchImpl as unknown as typeof fetch);
@@ -129,7 +198,7 @@ describe("HomeView", () => {
     expect(await within(stocks).findByText("Search a company to research it. Each search pulls fresh web data at that moment.")).toBeTruthy();
     const crypto = screen.getByRole("region", { name: /Crypto/ });
     expect(within(crypto).getByRole("link", { name: "BTC" })).toBeTruthy();
-    expect(within(crypto).getByText("2 · coinbase")).toBeTruthy();
+    expect(within(crypto).getByText("2 · Coinbase")).toBeTruthy();
     expect(within(stocks).queryByText(/price/i)).toBeNull();
     expect(screen.getByRole("region", { name: /New Solana tokens/ })).toBeTruthy();
   });

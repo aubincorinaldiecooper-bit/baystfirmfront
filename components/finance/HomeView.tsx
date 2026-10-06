@@ -7,8 +7,10 @@ import { Button } from "@/components/atoms/Button";
 import { StatusPill } from "@/components/atoms/StatusPill";
 import { useMarketsContext } from "@/components/markets/MarketsProvider";
 import NewsList, { NEWS_NOTE } from "@/components/markets/NewsList";
+import StablecoinBoard from "@/components/markets/StablecoinBoard";
 import TokensView from "@/components/markets/TokensView";
 import { fetchCandles, getFilings, getNews } from "@/lib/markets/client";
+import { fullHomeEnabled } from "@/lib/markets/features";
 import { formatClock, formatQuote, venueLabel } from "@/lib/markets/labels";
 import { groupInstrumentsByBase, type BaseInstrumentGroup } from "@/lib/markets/instruments";
 import { cryptoMove, rankMarketMoves, solanaMove } from "@/lib/markets/moves";
@@ -45,9 +47,15 @@ export function mergeNewsItems(...groups: readonly NewsItem[][]): NewsItem[] {
   return [...byId.values()].sort((a, b) => Date.parse(b.published_at) - Date.parse(a.published_at));
 }
 
-function HomeNews() {
+function HomeNews({
+  includeFilings = true,
+  excludeTokenEvents = false,
+}: {
+  includeFilings?: boolean;
+  excludeTokenEvents?: boolean;
+}) {
   const { items: recentSearches } = useRecentSearches();
-  const tickerKey = recentStockTickers(recentSearches).join(",");
+  const tickerKey = includeFilings ? recentStockTickers(recentSearches).join(",") : "";
   const [items, setItems] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -65,12 +73,13 @@ function HomeNews() {
       const tickers = tickerKey ? tickerKey.split(",") : [];
       const [newsResult, filingsResult] = await Promise.allSettled([
         getNews({ limit: 30 }, fetch, controller.signal),
-        tickers.length ? getFilings(tickers, 10, fetch, controller.signal) : Promise.resolve(null),
+        includeFilings && tickers.length ? getFilings(tickers, 10, fetch, controller.signal) : Promise.resolve(null),
       ]);
       if (!active || request !== latestRequest) return;
       const news = newsResult.status === "fulfilled" ? newsResult.value : null;
       const filings = filingsResult.status === "fulfilled" ? filingsResult.value : null;
-      setItems(mergeNewsItems(news?.items ?? [], filings?.items ?? []));
+      const newsItems = (news?.items ?? []).filter((item) => !excludeTokenEvents || item.kind !== "token_event");
+      setItems(mergeNewsItems(newsItems, filings?.items ?? []));
       setNote(news?.note ?? filings?.note ?? NEWS_NOTE);
       const errors = [
         newsResult.status === "rejected" ? "News could not be loaded." : "",
@@ -91,7 +100,7 @@ function HomeNews() {
       window.clearInterval(interval);
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, [tickerKey]);
+  }, [excludeTokenEvents, includeFilings, tickerKey]);
 
   return (
     <Section id="news-events" title="News & events" count={items.length}>
@@ -354,6 +363,7 @@ function BiggestMoves({
 }
 
 export default function HomeView() {
+  const fullHome = fullHomeEnabled();
   const router = useRouter();
   const { state, snapshotError, stream, reload } = useMarketsContext();
   const [tokenFeed, setTokenFeed] = useState<NewTokensFeed | null>(null);
@@ -361,30 +371,49 @@ export default function HomeView() {
 
   return (
     <>
-      <PageHeader title="Markets" />
+      <PageHeader title={fullHome ? "Markets" : "Stablecoins"} />
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto w-full max-w-[1280px] px-4 pb-16 pt-6 sm:px-8">
-          <h1 className="text-[22px] font-semibold tracking-tight text-ink">Markets</h1>
-          <p className="mt-2 max-w-[760px] text-[14px] leading-[1.6] text-ink-2">
-            Market states and probabilities only, not investment advice. No trading, wallets or custody. Live public crypto market data is normalized by the Baystfirm backend; company research uses fresh web-search results.
-          </p>
-          <BiggestMoves groups={groups} snapshotLoaded={state.snapshotLoaded} tokenFeed={tokenFeed} />
-          <div className="grid grid-cols-1 gap-x-8 xl:grid-cols-2">
-            <CryptoOverview
-              groups={groups}
-              snapshotLoaded={state.snapshotLoaded}
-              snapshotError={snapshotError}
-              stream={stream}
-              reload={reload}
-            />
-            <StocksOverview />
-          </div>
-          <HomeNews />
-          <TokensView
-            embedded
-            onFeedUpdate={setTokenFeed}
-            onOpenTokenPage={(mint) => router.push(`/tokens/${encodeURIComponent(mint)}`)}
-          />
+          {fullHome ? (
+            <>
+              <h1 className="text-[22px] font-semibold tracking-tight text-ink">Markets</h1>
+              <p className="mt-2 max-w-[760px] text-[14px] leading-[1.6] text-ink-2">
+                Market states and probabilities only, not investment advice. No trading, wallets or custody. Live public crypto market data is normalized by the Baystfirm backend; company research uses fresh web-search results.
+              </p>
+              <BiggestMoves groups={groups} snapshotLoaded={state.snapshotLoaded} tokenFeed={tokenFeed} />
+              <div className="grid grid-cols-1 gap-x-8 xl:grid-cols-2">
+                <CryptoOverview
+                  groups={groups}
+                  snapshotLoaded={state.snapshotLoaded}
+                  snapshotError={snapshotError}
+                  stream={stream}
+                  reload={reload}
+                />
+                <StocksOverview />
+              </div>
+              <HomeNews />
+              <TokensView
+                embedded
+                onFeedUpdate={setTokenFeed}
+                onOpenTokenPage={(mint) => router.push(`/tokens/${encodeURIComponent(mint)}`)}
+              />
+            </>
+          ) : (
+            <>
+              <h1 className="text-[22px] font-semibold tracking-tight text-ink">Stablecoins</h1>
+              <p className="mt-2 max-w-[760px] text-[14px] leading-[1.6] text-ink-2">
+                Live stablecoin prices against $1 across exchanges. Measured prices only, not investment advice. No trading, wallets or custody.
+              </p>
+              <StablecoinBoard
+                marketState={state}
+                snapshotLoaded={state.snapshotLoaded}
+                snapshotError={snapshotError}
+                stream={stream}
+                reload={reload}
+              />
+              <HomeNews includeFilings={false} excludeTokenEvents />
+            </>
+          )}
         </div>
       </div>
     </>
