@@ -116,8 +116,12 @@ export default function TradingChart({
         panes: { enableResize: false },
       },
       crosshair: { mode: CrosshairMode.Normal },
-      rightPriceScale: { borderVisible: false, scaleMargins: { top: 0.12, bottom: 0.08 } },
-      timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false },
+      rightPriceScale: {
+        borderVisible: false,
+        entireTextOnly: true,
+        scaleMargins: { top: 0.12, bottom: 0.08 },
+      },
+      timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false, rightOffset: 4 },
       localization: {
         timeFormatter: (time: Time) => formatBarTime(Number(time)),
       },
@@ -283,10 +287,10 @@ export default function TradingChart({
   const height = PRICE_PANE_HEIGHT + SUB_PANE_HEIGHT * (chartPanes(lines).length - 1);
 
   return (
-    <div className="relative" style={{ height }} aria-label={ariaLabel} role="img">
-      <div ref={containerRef} className="absolute inset-0" />
+    <div aria-label={ariaLabel} role="img">
+      <div className="mb-1 flex min-h-[16px] flex-wrap gap-x-3 gap-y-0.5 font-mono text-[11px] tabular-nums text-ink-2">
       {bar && (
-        <div className="pointer-events-none absolute left-2 top-1 z-10 flex flex-wrap gap-x-3 gap-y-0.5 font-mono text-[11px] tabular-nums text-ink-2">
+        <>
           <span>O {formatCandlePrice(bar.open, pricePrecision)}</span>
           <span>H {formatCandlePrice(bar.high, pricePrecision)}</span>
           <span>L {formatCandlePrice(bar.low, pricePrecision)}</span>
@@ -301,11 +305,17 @@ export default function TradingChart({
                 {line.label} {formatCandlePrice(readoutValue(line), pricePrecision)}
               </span>
             ))}
-        </div>
+        </>
       )}
-      {emptyText && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center text-[12.5px] text-ink-3">{emptyText}</div>
-      )}
+      </div>
+      <div className="relative" style={{ height }}>
+        <div ref={containerRef} className="absolute inset-0" />
+        {emptyText && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center text-[12.5px] text-ink-3">
+            {emptyText}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
