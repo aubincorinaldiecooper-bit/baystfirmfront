@@ -1,9 +1,10 @@
 /** @vitest-environment jsdom */
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import TokenAssetView from "@/components/markets/TokenAssetView";
-import type { TokenCard, TokenFact, TokenLiquidityLock } from "@/lib/markets/types";
+import * as marketsClient from "@/lib/markets/client";
+import type { NewsFeed, NewsItem, TokenCard, TokenFact, TokenLiquidityLock } from "@/lib/markets/types";
 
 vi.mock("next/image", () => ({
   default: ({ alt, src }: { alt: string; src: string }) => <div role="img" aria-label={alt} data-src={src} />,
@@ -17,9 +18,16 @@ vi.mock("@/components/markets/CandleChartPanel", () => ({
 afterEach(() => {
   cleanup();
   Object.defineProperty(navigator, "clipboard", { configurable: true, value: undefined });
+  vi.restoreAllMocks();
 });
 
 const MINT = "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263";
+const NEWS_NOTE = "Headlines link to the original publisher. Market and token events are measured by Baystfirm from exchange and on-chain data. Facts, not investment advice.";
+const EMPTY_NEWS: NewsFeed = { generated_at: "2026-10-04T17:00:00Z", items: [], sources: [], note: NEWS_NOTE };
+
+beforeEach(() => {
+  vi.spyOn(marketsClient, "getNews").mockResolvedValue(EMPTY_NEWS);
+});
 
 function fact<T>(value: T | null, fields: Partial<TokenFact<T>> = {}): TokenFact<T> {
   return { status: "ok", value, source: "solana_rpc", fetched_at: "2026-10-04T17:00:00Z", detail: null, ...fields };
@@ -112,5 +120,29 @@ describe("TokenAssetView", () => {
     render(<TokenAssetView mint="not-a-mint" fetchImpl={fetchImpl as unknown as typeof fetch} />);
     expect((await screen.findByRole("alert")).textContent).toContain("That address is not a Solana token mint.");
     expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("shows mint-filtered token events beneath Token facts as plain text on the same asset page", async () => {
+    const event: NewsItem = {
+      id: "liquidity-drop",
+      kind: "token_event",
+      source: "baystfirm",
+      source_label: "Baystfirm (measured)",
+      title: "KNOB liquidity fell 60% ($100,000 → $40,000) on raydium",
+      url: null,
+      published_at: "2026-10-04T16:59:00Z",
+      symbols: [MINT],
+      details: { before_usd: 100_000, after_usd: 40_000, symbol: "KNOB" },
+    };
+    const getNews = vi.spyOn(marketsClient, "getNews").mockResolvedValue({ ...EMPTY_NEWS, items: [event] });
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify(tokenCard), { status: 200, headers: { "content-type": "application/json" } }));
+    render(<TokenAssetView mint={MINT} fetchImpl={fetchImpl as unknown as typeof fetch} />);
+
+    const section = await screen.findByRole("region", { name: /^Token events/ });
+    expect(within(section).getByText(event.title).closest("a")).toBeNull();
+    const factsHeading = screen.getByRole("heading", { name: "Token facts" });
+    const eventsHeading = screen.getByRole("heading", { name: /^Token events/ });
+    expect(factsHeading.compareDocumentPosition(eventsHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(getNews).toHaveBeenCalledWith({ symbol: MINT, kinds: ["token_event"], limit: 50 }, expect.any(Function), expect.any(AbortSignal));
   });
 });

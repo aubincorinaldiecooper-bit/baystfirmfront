@@ -17,6 +17,8 @@ import { completedResult } from "./fixtures/events";
 import { LIVE_EVENTS, LIVE_ID, URLS, seqOf } from "./fixtures/live";
 import { WATCHLIST_KEY } from "@/lib/market/watchlist";
 import { NO_PRICE_HISTORY, NO_QUARTERLY_FIGURES } from "@/lib/market/model";
+import * as marketsClient from "@/lib/markets/client";
+import type { FilingsFeed } from "@/lib/markets/types";
 import { FakeEventSource, openWithFakeEventSource, stubBackend, type RouteHandler } from "./helpers/fake-backend";
 import { renderWorkspace } from "./helpers/workspace";
 
@@ -27,11 +29,29 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
-afterEach(cleanup);
+const EMPTY_FILINGS: FilingsFeed = {
+  generated_at: "2026-10-04T17:00:00Z",
+  items: [],
+  notes: [],
+  source: {
+    source: "sec_edgar",
+    label: "SEC EDGAR",
+    url: "https://www.sec.gov/files/company_tickers.json",
+    last_success_at: null,
+    last_error: null,
+  },
+  note: "Headlines link to the original publisher. Market and token events are measured by Baystfirm from exchange and on-chain data. Facts, not investment advice.",
+};
+
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 beforeEach(() => {
   FakeEventSource.reset();
   nav.push.mockReset();
   window.localStorage.clear();
+  vi.spyOn(marketsClient, "getFilings").mockResolvedValue(EMPTY_FILINGS);
 });
 
 const running = (result: AnalysisResult, status: AnalysisResult["status"] = "researching"): AnalysisResult => ({

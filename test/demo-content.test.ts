@@ -80,12 +80,13 @@ describe("shipped code carries no demo content", () => {
     expect(hits).toEqual([]);
   });
 
-  it("components run no timers of their own, except the LoadingState wall clock", () => {
+  it("components only run the loading and requested news refresh timers", () => {
     const hits = offenders(/\bset(Timeout|Interval)\s*\(/, (path) => path.startsWith("components/")).filter(
       (hit) =>
         !hit.startsWith("components/primitives/LoadingState.tsx:") &&
         !hit.startsWith("components/finance/HeaderSearch.tsx:") &&
-        !hit.startsWith("components/markets/TokensView.tsx:"),
+        !hit.startsWith("components/markets/TokensView.tsx:") &&
+        !hit.startsWith("components/finance/HomeView.tsx:"),
     );
     expect(hits).toEqual([]);
   });

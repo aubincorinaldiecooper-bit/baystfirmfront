@@ -13,6 +13,7 @@ import { groupInstrumentsByBase, preferredInstrument } from "@/lib/markets/instr
 import { classificationsFor, instrumentKey, instrumentRows, type InstrumentRow } from "@/lib/markets/state";
 import { useWatchlist } from "@/lib/markets/useWatchlist";
 import type { DerivativeState } from "@/lib/markets/state";
+import NewsSection from "./NewsSection";
 import { MOMENTUM_HORIZONS } from "./TrackRecordPanel";
 import TrackRecordPanel from "./TrackRecordPanel";
 import InstrumentTable from "./InstrumentTable";
@@ -22,7 +23,7 @@ import SignalBoard from "./SignalBoard";
 import GatePanel from "./GatePanel";
 import AlertsPanel from "./AlertsPanel";
 
-type CryptoTab = "venues" | "derivatives" | "liquidations" | "signals" | "track-record" | "alerts";
+type CryptoTab = "venues" | "derivatives" | "liquidations" | "signals" | "track-record" | "alerts" | "news";
 
 const EMPTY_MARKET_NAMES: string[] = [];
 
@@ -33,6 +34,7 @@ const tabs: { id: CryptoTab; label: string }[] = [
   { id: "signals", label: "Signals" },
   { id: "track-record", label: "Track record" },
   { id: "alerts", label: "Alerts" },
+  { id: "news", label: "News" },
 ];
 
 function baseOf(symbol: string): string {
@@ -343,6 +345,18 @@ export default function CryptoAssetView({
                 )}
                 {activeTab === "alerts" && featuresEnabled && (
                   <AlertsPanel state={state} rows={rows} />
+                )}
+                {activeTab === "news" && (
+                  <>
+                    <NewsSection
+                      title={`${base} events`}
+                      feed="news"
+                      symbol={base}
+                      kinds={["market_event"]}
+                      currentAsset={{ kind: "crypto", symbol: base }}
+                    />
+                    <NewsSection title="Regulator releases" feed="news" kinds={["official"]} limit={10} />
+                  </>
                 )}
               </div>
               {state.snapshotLoaded && (

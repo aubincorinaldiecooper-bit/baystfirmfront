@@ -7,6 +7,7 @@ import { StatusPill } from "@/components/atoms/StatusPill";
 import PageHeader from "@/components/finance/PageHeader";
 import { Notice, Section } from "@/components/finance/ui";
 import CandleChartPanel from "@/components/markets/CandleChartPanel";
+import NewsSection from "@/components/markets/NewsSection";
 import TokenFactsList from "@/components/markets/TokenFactsList";
 import { fetchTokenCard, fetchTokenCandles, MarketsError } from "@/lib/markets/client";
 import { formatClock } from "@/lib/markets/labels";
@@ -182,6 +183,13 @@ export default function TokenAssetView({
               <Section id="token-facts" title="Token facts">
                 <TokenFactsList card={card} />
               </Section>
+              <NewsSection
+                title="Token events"
+                feed="news"
+                symbol={mint}
+                kinds={["token_event"]}
+                currentAsset={{ kind: "token", symbol: mint }}
+              />
             </>
           )}
         </div>

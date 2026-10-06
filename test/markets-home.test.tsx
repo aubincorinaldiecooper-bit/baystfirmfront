@@ -1,10 +1,14 @@
 /** @vitest-environment jsdom */
 import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import HomeView from "@/components/finance/HomeView";
+import CryptoAssetView from "@/components/markets/CryptoAssetView";
 import type { AnalysisSummary } from "@/lib/api/types";
+import * as marketsClient from "@/lib/markets/client";
 import { initialMarketsState, marketsReducer } from "@/lib/markets/state";
-import type { MarketEvent, MarketsSnapshot } from "@/lib/markets/types";
+import type { FilingsFeed, MarketEvent, MarketsSnapshot, NewsFeed, NewsItem } from "@/lib/markets/types";
+import { RECENT_SEARCHES_KEY } from "@/lib/search/recents";
 import type { UseMarketsResult } from "@/lib/markets/useMarkets";
 import { capabilitiesFixture, jsonResponse } from "./fixtures/backend";
 import { stubBackend } from "./helpers/fake-backend";
@@ -17,19 +21,49 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 vi.mock("@/components/markets/TokensView", () => ({ default: () => <section aria-label="New Solana tokens" /> }));
+vi.mock("@/components/markets/LiveChart", () => ({ default: () => null }));
 
 afterEach(() => {
   cleanup();
+  localStorage.clear();
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 beforeEach(() => {
   nav.push.mockReset();
+  localStorage.clear();
   vi.stubEnv("NEXT_PUBLIC_WATCHLIST_ALERTS", "false");
+  vi.spyOn(marketsClient, "getNews").mockResolvedValue(EMPTY_NEWS);
+  vi.spyOn(marketsClient, "getFilings").mockResolvedValue(EMPTY_FILINGS);
 });
 
 const AT = "2026-10-04T17:00:00Z";
+const NOTE = "Headlines link to the original publisher. Market and token events are measured by Baystfirm from exchange and on-chain data. Facts, not investment advice.";
+const EMPTY_NEWS: NewsFeed = { generated_at: AT, items: [], sources: [], note: NOTE };
+const EMPTY_FILINGS: FilingsFeed = {
+  generated_at: AT,
+  items: [],
+  notes: [],
+  source: { source: "sec_edgar", label: "SEC EDGAR", url: "https://www.sec.gov/files/company_tickers.json", last_success_at: null, last_error: null },
+  note: NOTE,
+};
+
+function newsItem(id: string, title: string, kind: NewsItem["kind"], published_at: string): NewsItem {
+  const ownEvent = kind === "market_event" || kind === "token_event";
+  return {
+    id,
+    kind,
+    source: kind === "filing" ? "sec_edgar" : ownEvent ? "baystfirm" : "sec",
+    source_label: kind === "filing" ? "SEC EDGAR" : ownEvent ? "Baystfirm (measured)" : "U.S. SEC",
+    title,
+    url: `https://example.test/${id}`,
+    published_at,
+    symbols: kind === "filing" ? ["AAPL"] : [],
+    details: {},
+  };
+}
 
 function trade(venue: string, symbol: string, price: number): MarketEvent {
   return {
@@ -52,7 +86,7 @@ function trade(venue: string, symbol: string, price: number): MarketEvent {
   };
 }
 
-function setup(fetchImpl: typeof fetch, analyses: AnalysisSummary[] = []) {
+function setup(fetchImpl: typeof fetch, analyses: AnalysisSummary[] = [], ui: ReactNode = <HomeView />) {
   const snapshot: MarketsSnapshot = {
     generated_at: AT,
     shadow_mode: true,
@@ -79,7 +113,7 @@ function setup(fetchImpl: typeof fetch, analyses: AnalysisSummary[] = []) {
     "GET /analyses": () => jsonResponse(200, { analyses, next_cursor: null }),
   });
   vi.stubGlobal("fetch", fetchImpl);
-  renderWorkspace(<HomeView />, { client: backend.client }, markets);
+  renderWorkspace(ui, { client: backend.client }, markets);
 }
 
 describe("HomeView", () => {
@@ -93,6 +127,51 @@ describe("HomeView", () => {
     expect(within(crypto).getByText("2 · coinbase")).toBeTruthy();
     expect(within(stocks).queryByText(/price/i)).toBeNull();
     expect(screen.getByRole("region", { name: /New Solana tokens/ })).toBeTruthy();
+  });
+
+  it("merges recent news and filings newest-first using only recent stock tickers", async () => {
+    const official = newsItem("official", "SEC press release", "official", "2026-10-05T12:00:00Z");
+    const filing = newsItem("filing", "Apple Form 8-K", "filing", "2026-10-05T13:00:00Z");
+    const getNews = vi.spyOn(marketsClient, "getNews").mockResolvedValue({ ...EMPTY_NEWS, items: [official] });
+    const filings = vi.spyOn(marketsClient, "getFilings").mockResolvedValue({ ...EMPTY_FILINGS, items: [filing] });
+    localStorage.setItem(
+      RECENT_SEARCHES_KEY,
+      JSON.stringify([
+        { kind: "stock", id: "stock:AAPL", label: "AAPL", at: "2026-10-03T12:00:00Z" },
+        { kind: "crypto", id: "crypto:BTC", label: "BTC", at: "2026-10-05T11:00:00Z" },
+        { kind: "stock", id: "stock:GOOG", label: "GOOG", at: "2026-10-04T12:00:00Z" },
+        { kind: "token", id: "token:mint", label: "Mint", at: "2026-10-05T10:00:00Z" },
+        { kind: "stock", id: "stock:invalid", label: "AAPL!", at: "2026-10-05T14:00:00Z" },
+      ]),
+    );
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ candles: [] }), { status: 200 }));
+    setup(fetchImpl as unknown as typeof fetch);
+
+    const panel = screen.getByRole("region", { name: /News & events/ });
+    const list = await within(panel).findByRole("list", { name: "News and events" });
+    await waitFor(() => expect(filings).toHaveBeenCalledWith(["GOOG", "AAPL"], 10, fetchImpl, expect.any(AbortSignal)));
+    expect(getNews).toHaveBeenCalledWith({ limit: 30 }, fetchImpl, expect.any(AbortSignal));
+    expect(within(list).getAllByRole("link").map((link) => link.textContent)).toEqual(["Apple Form 8-K", "SEC press release"]);
+    expect(within(panel).getByText(NOTE)).toBeTruthy();
+  });
+
+  it("loads crypto events and regulator releases in the News tab", async () => {
+    const marketEvent = newsItem("market", "BTC position liquidated on Bybit", "market_event", "2026-10-05T12:00:00Z");
+    const official = newsItem("release", "SEC press release", "official", "2026-10-05T11:00:00Z");
+    const news = vi.spyOn(marketsClient, "getNews").mockImplementation(async (query) => ({
+      ...EMPTY_NEWS,
+      items: query?.kinds?.includes("market_event") ? [marketEvent] : [official],
+    }));
+    const fetchImpl = vi.fn(async () => new Response("{}", { status: 200 }));
+    setup(fetchImpl as unknown as typeof fetch, [], <CryptoAssetView base="BTC" />);
+
+    fireEvent.click(screen.getByRole("tab", { name: "News" }));
+    expect(await screen.findByRole("region", { name: /^BTC events/ })).toBeTruthy();
+    expect(await screen.findByRole("region", { name: /^Regulator releases/ })).toBeTruthy();
+    expect(screen.getByText(marketEvent.title)).toBeTruthy();
+    expect(screen.getByText(official.title)).toBeTruthy();
+    expect(news).toHaveBeenCalledWith({ symbol: "BTC", kinds: ["market_event"], limit: 50 }, fetchImpl, expect.any(AbortSignal));
+    expect(news).toHaveBeenCalledWith({ kinds: ["official"], limit: 10 }, fetchImpl, expect.any(AbortSignal));
   });
 
   it("deduplicates completed company research by symbol and keeps the newest search", async () => {

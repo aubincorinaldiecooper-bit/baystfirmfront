@@ -8,9 +8,12 @@ import type {
   CandleResponse,
   Classification,
   EvaluationGate,
+  FilingsFeed,
   MarketEvent,
   MarketsSnapshot,
   NewTokensFeed,
+  NewsFeed,
+  NewsKind,
   SignalBacktest,
   SolanaCandleInterval,
   SolanaSearchResponse,
@@ -95,6 +98,28 @@ export const fetchTokenCandles = (
 
 export const fetchSolanaTokenSearch = (query: string, fetchImpl?: typeof fetch, signal?: AbortSignal) =>
   getMarketsJson<SolanaSearchResponse>(`solana/search?${new URLSearchParams({ q: query })}`, fetchImpl, signal);
+
+export function getNews(
+  { symbol, kinds, limit }: { symbol?: string; kinds?: readonly NewsKind[]; limit?: number } = {},
+  fetchImpl?: typeof fetch,
+  signal?: AbortSignal,
+): Promise<NewsFeed> {
+  const query = new URLSearchParams();
+  if (symbol) query.set("symbol", symbol);
+  for (const kind of kinds ?? []) query.append("kind", kind);
+  if (limit !== undefined) query.set("limit", String(limit));
+  return getMarketsJson<NewsFeed>(`news${query.size ? `?${query}` : ""}`, fetchImpl, signal);
+}
+
+export function getFilings(
+  tickers: readonly string[],
+  limit = 20,
+  fetchImpl?: typeof fetch,
+  signal?: AbortSignal,
+): Promise<FilingsFeed> {
+  const query = new URLSearchParams({ tickers: tickers.join(","), limit: String(limit) });
+  return getMarketsJson<FilingsFeed>(`news/filings?${query}`, fetchImpl, signal);
+}
 
 export const fetchCandles = (
   venue: string,
