@@ -22,7 +22,7 @@ vi.mock("@/components/finance/PageHeader", () => ({
   ),
 }));
 vi.mock("@/components/markets/CandleChartPanel", () => ({
-  default: ({
+  default: function CandleChartPanelMock({
     title,
     ticks = [],
     showLastPrice,
@@ -34,7 +34,7 @@ vi.mock("@/components/markets/CandleChartPanel", () => ({
     showLastPrice?: boolean;
     simple?: boolean;
     onChartChange?: (percentage: number | null, spanMs: number | null) => void;
-  }) => {
+  }) {
     useEffect(() => {
       if (simple) onChartChange?.(8.43, 8 * 24 * 60 * 60_000);
     }, [onChartChange, simple]);
