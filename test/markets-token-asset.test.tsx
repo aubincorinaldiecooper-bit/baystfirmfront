@@ -139,7 +139,7 @@ describe("TokenAssetView", () => {
     render(<TokenAssetView mint={MINT} fetchImpl={fetchImpl as unknown as typeof fetch} />);
 
     const section = await screen.findByRole("region", { name: /^Token events/ });
-    expect(within(section).getByText(event.title).closest("a")).toBeNull();
+    expect((await within(section).findByText(event.title)).closest("a")).toBeNull();
     const factsHeading = screen.getByRole("heading", { name: "Token facts" });
     const eventsHeading = screen.getByRole("heading", { name: /^Token events/ });
     expect(factsHeading.compareDocumentPosition(eventsHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();

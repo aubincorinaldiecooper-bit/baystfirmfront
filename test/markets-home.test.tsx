@@ -225,10 +225,10 @@ describe("HomeView", () => {
     setup(fetchImpl as unknown as typeof fetch, [], <CryptoAssetView base="BTC" />);
 
     fireEvent.click(screen.getByRole("tab", { name: "News" }));
-    expect(await screen.findByRole("region", { name: /^BTC events/ })).toBeTruthy();
-    expect(await screen.findByRole("region", { name: /^Regulator releases/ })).toBeTruthy();
-    expect(screen.getByText(marketEvent.title)).toBeTruthy();
-    expect(screen.getByText(official.title)).toBeTruthy();
+    const events = await screen.findByRole("region", { name: /^BTC events/ });
+    const releases = await screen.findByRole("region", { name: /^Regulator releases/ });
+    expect(await within(events).findByText(marketEvent.title)).toBeTruthy();
+    expect(await within(releases).findByText(official.title)).toBeTruthy();
     expect(news).toHaveBeenCalledWith({ symbol: "BTC", kinds: ["market_event"], limit: 50 }, fetchImpl, expect.any(AbortSignal));
     expect(news).toHaveBeenCalledWith({ kinds: ["official"], limit: 10 }, fetchImpl, expect.any(AbortSignal));
   });
