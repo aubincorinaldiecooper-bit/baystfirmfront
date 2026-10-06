@@ -30,5 +30,5 @@
 - Once a change has passed its checks, **leave it alone**: no follow-up tidying, relabelling or
   "one more fix" before it ships, and no re-running checks on code that already passed. Ship
   exactly what passed.
-- Leftovers noticed after checks pass are reported to the owner, not fixed on the spot. They go
-  in a later change only if the owner asks.
+- Bugs found while testing (including in a browser click-through) are fixed on the spot, in a
+  follow-up change, rather than only reported.

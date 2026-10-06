@@ -216,6 +216,10 @@ function StocksOverview() {
             </Link>
           ))}
         </div>
+      ) : history.status === "error" ? (
+        <p role="status" className="rounded-[10px] bg-surface px-4 py-3 text-[12.5px] text-ink-2 shadow-card">
+          Company research is unavailable right now{history.error ? `: ${history.error.message}` : "."}
+        </p>
       ) : history.status === "loading" || !history.loaded ? (
         <p className="rounded-[10px] bg-surface px-4 py-3 text-[12.5px] text-ink-3 shadow-card">Loading company research…</p>
       ) : (
@@ -223,7 +227,7 @@ function StocksOverview() {
           Search a company to research it. Each search pulls fresh web data at that moment.
         </p>
       )}
-      {history.error && <p role="status" className="mt-2 text-[11.5px] text-ink-3">Research history could not be refreshed: {history.error.message}</p>}
+      {rows.length > 0 && history.error && <p role="status" className="mt-2 text-[11.5px] text-ink-3">Research history could not be refreshed: {history.error.message}</p>}
     </Section>
   );
 }

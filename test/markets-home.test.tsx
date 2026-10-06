@@ -86,7 +86,12 @@ function trade(venue: string, symbol: string, price: number): MarketEvent {
   };
 }
 
-function setup(fetchImpl: typeof fetch, analyses: AnalysisSummary[] = [], ui: ReactNode = <HomeView />) {
+function setup(
+  fetchImpl: typeof fetch,
+  analyses: AnalysisSummary[] = [],
+  ui: ReactNode = <HomeView />,
+  historyResponse?: () => Response,
+) {
   const snapshot: MarketsSnapshot = {
     generated_at: AT,
     shadow_mode: true,
@@ -110,7 +115,7 @@ function setup(fetchImpl: typeof fetch, analyses: AnalysisSummary[] = [], ui: Re
   };
   const backend = stubBackend({
     "GET /capabilities": () => jsonResponse(200, capabilitiesFixture),
-    "GET /analyses": () => jsonResponse(200, { analyses, next_cursor: null }),
+    "GET /analyses": () => historyResponse?.() ?? jsonResponse(200, { analyses, next_cursor: null }),
   });
   vi.stubGlobal("fetch", fetchImpl);
   renderWorkspace(ui, { client: backend.client }, markets);
@@ -127,6 +132,60 @@ describe("HomeView", () => {
     expect(within(crypto).getByText("2 · coinbase")).toBeTruthy();
     expect(within(stocks).queryByText(/price/i)).toBeNull();
     expect(screen.getByRole("region", { name: /New Solana tokens/ })).toBeTruthy();
+  });
+
+  it("shows a company-research unavailable state when history fails before loading rows", async () => {
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ candles: [] }), { status: 200 }));
+    setup(
+      fetchImpl as unknown as typeof fetch,
+      [],
+      <HomeView />,
+      () =>
+        jsonResponse(503, {
+          error: { code: "INTERNAL_ERROR", message: "History service is unavailable.", retryable: true },
+        }),
+    );
+
+    const stocks = screen.getByRole("region", { name: /Stocks/ });
+    expect(
+      await within(stocks).findByText("Company research is unavailable right now: History service is unavailable."),
+    ).toBeTruthy();
+    expect(within(stocks).queryByText("Loading company research…")).toBeNull();
+    expect(within(stocks).queryByText(/Research history could not be refreshed/)).toBeNull();
+    expect(within(stocks).getByRole("status")).toBeTruthy();
+  });
+
+  it("shows the refresh error when older stock research rows remain after loading more fails", async () => {
+    const apple: AnalysisSummary = {
+      analysis_id: "apple",
+      query: "Apple outlook",
+      instrument: { symbol: "AAPL", exchange: "NASDAQ", name: "Apple", cik: null, sector: null, instrument_type: "stock" },
+      profile: "fast",
+      horizon: "next_cycle",
+      status: "completed",
+      created_at: AT,
+      updated_at: AT,
+      completed_at: AT,
+      error_code: null,
+    };
+    const historyResponse = vi
+      .fn<() => Response>()
+      .mockReturnValueOnce(jsonResponse(200, { analyses: [apple], next_cursor: "next-page" }))
+      .mockReturnValueOnce(
+        jsonResponse(503, {
+          error: { code: "INTERNAL_ERROR", message: "History page failed.", retryable: true },
+        }),
+      );
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ candles: [] }), { status: 200 }));
+    setup(fetchImpl as unknown as typeof fetch, [], <HomeView />, historyResponse);
+
+    const stocks = screen.getByRole("region", { name: /Stocks/ });
+    expect(await within(stocks).findByRole("link", { name: /AAPL · Apple/ })).toBeTruthy();
+    fireEvent.click(await screen.findByRole("button", { name: "Load more" }));
+    expect(
+      await within(stocks).findByText("Research history could not be refreshed: History page failed."),
+    ).toBeTruthy();
+    expect(within(stocks).getByRole("link", { name: /AAPL · Apple/ })).toBeTruthy();
   });
 
   it("merges recent news and filings newest-first using only recent stock tickers", async () => {
