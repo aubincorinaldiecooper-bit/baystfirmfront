@@ -17,25 +17,24 @@ vi.mock("next/image", () => ({
   default: ({ alt, src }: { alt: string; src: string }) => <div role="img" aria-label={alt} data-src={src} />,
 }));
 vi.mock("@/components/finance/PageHeader", () => ({
-  default: ({ title }: { title: ReactNode }) => <header>{title}</header>,
+  default: ({ title, actions }: { title: ReactNode; actions?: ReactNode }) => (
+    <header>{title}<div data-testid="page-header-actions">{actions}</div></header>
+  ),
 }));
 vi.mock("@/components/markets/CandleChartPanel", () => ({
   default: ({
     title,
     ticks = [],
     showLastPrice,
-    showTradeCount,
   }: {
     title: ReactNode;
     ticks?: { time: number; value: number }[];
     showLastPrice?: boolean;
-    showTradeCount?: boolean;
   }) => (
     <div
       aria-label="Token candlestick panel"
       data-tick-count={ticks.length}
       data-show-last-price={String(showLastPrice)}
-      data-show-trade-count={String(showTradeCount)}
     >
       {title}
     </div>
@@ -155,14 +154,15 @@ describe("TokenAssetView", () => {
     expect(screen.getByText(/Checked/).querySelector("time")?.getAttribute("dateTime")).toBe(tokenCard.checked_at);
     expect(container.querySelector('[role="img"]')?.getAttribute("data-src")).toBe(tokenCard.image_url);
     expect(screen.getByRole("heading", { name: "Token facts" })).toBeTruthy();
-    expect(screen.getByText("Per GeckoTerminal; may include pool and exchange accounts.")).toBeTruthy();
+    expect(container.textContent?.match(/per GeckoTerminal; may include pool and exchange accounts\./gi)).toHaveLength(1);
     expect(screen.getByText("Holder count: 1,024,405")).toBeTruthy();
     expect(screen.getByText("Pool account")).toBeTruthy();
     expect(screen.queryByText("Pool, not counted")).toBeNull();
     expect(screen.getByText(/8 pools · total liquidity/)).toBeTruthy();
     expect(screen.getByText("Second opinion: RugCheck")).toBeTruthy();
     expect(screen.getByLabelText("Token candlestick panel").getAttribute("data-show-last-price")).toBe("false");
-    expect(screen.getByLabelText("Token candlestick panel").getAttribute("data-show-trade-count")).toBe("false");
+    expect(screen.getByTestId("page-header-actions").textContent).toBe("");
+    expect(screen.queryByText(/recorded trade/)).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "Copy mint address" }));
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(MINT));
@@ -173,7 +173,25 @@ describe("TokenAssetView", () => {
     const fetchImpl = vi.fn();
     render(<TokenAssetView mint="not-a-mint" fetchImpl={fetchImpl as unknown as typeof fetch} />);
     expect((await screen.findByRole("alert")).textContent).toContain("That address is not a Solana token mint.");
+    expect(screen.getByTestId("page-header-actions").textContent).toBe("Unavailable");
     expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("shows the checking pill while token facts are loading", () => {
+    const fetchImpl = vi.fn(() => new Promise<Response>(() => {}));
+    render(<TokenAssetView mint={MINT} fetchImpl={fetchImpl as unknown as typeof fetch} />);
+    expect(screen.getByTestId("page-header-actions").textContent).toBe("Checking");
+  });
+
+  it("shows a token name alone when its symbol differs only by case", async () => {
+    const sameNameCard = { ...tokenCard, name: "Bonk", symbol: "BONK" };
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) =>
+      String(input).endsWith("/price") ? jsonResponse(tokenPrice(0.00002)) : jsonResponse(sameNameCard),
+    );
+    render(<TokenAssetView mint={MINT} fetchImpl={fetchImpl as unknown as typeof fetch} />);
+    const title = await screen.findByRole("heading", { level: 1 });
+    expect(title.textContent).toBe("Bonk");
+    expect(title.querySelectorAll("bdi")).toHaveLength(1);
   });
 
   it("refreshes facts after 60 seconds and keeps the previous card when refresh fails", async () => {

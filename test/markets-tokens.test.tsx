@@ -230,7 +230,7 @@ describe("TokensView", () => {
     expect(within(row).getByText("Top 10 hold 38.5%")).toBeTruthy();
     fireEvent.click(within(row).getByRole("button", { name: "Open details for BONK" }));
     const dialog = await screen.findByRole("dialog", { name: /BONK/ });
-    expect(within(dialog).getByText("Per GeckoTerminal; may include pool and exchange accounts.")).toBeTruthy();
+    expect(within(dialog).getAllByText(/per GeckoTerminal; may include pool and exchange accounts\./i)).toHaveLength(1);
     expect(within(dialog).getByText("Holder count: 1,024,405")).toBeTruthy();
     expect(within(dialog).getByText("2026-10-04 16:59:00 UTC").getAttribute("datetime")).toBe("2026-10-04T16:59:00Z");
     expect(within(dialog).queryByText("Pool, not counted")).toBeNull();

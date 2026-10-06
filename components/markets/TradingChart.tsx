@@ -116,7 +116,7 @@ export default function TradingChart({
         panes: { enableResize: false },
       },
       crosshair: { mode: CrosshairMode.Normal },
-      rightPriceScale: { borderVisible: false },
+      rightPriceScale: { borderVisible: false, scaleMargins: { top: 0.12, bottom: 0.08 } },
       timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false },
       localization: {
         timeFormatter: (time: Time) => formatBarTime(Number(time)),

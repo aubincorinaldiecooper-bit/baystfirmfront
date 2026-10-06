@@ -32,7 +32,6 @@ export default function CandleChartPanel({
   attribution,
   referenceLines,
   showIndicators = true,
-  showTradeCount = false,
   showLastPrice = true,
   ariaLabel,
 }: {
@@ -50,7 +49,6 @@ export default function CandleChartPanel({
   attribution?: (response: CandleResponse) => ReactNode;
   referenceLines?: readonly { price: number; title: string }[];
   showIndicators?: boolean;
-  showTradeCount?: boolean;
   showLastPrice?: boolean;
   ariaLabel?: string;
 }) {
@@ -164,11 +162,6 @@ export default function CandleChartPanel({
         emptyText={mergedCandles.length > 0 ? null : loading ? loadingMessage ?? "Loading candles…" : noCandles}
         ariaLabel={ariaLabel ?? `Candlestick history for ${symbol ?? "instrument"} on ${displayVenue}`}
       />
-      {showTradeCount && (
-        <p className="mt-2 text-[11.5px] text-ink-3">
-          {ticks.length} recorded trade{ticks.length === 1 ? "" : "s"} since this page opened.
-        </p>
-      )}
       {response ? (
         attribution ? (
           attribution(response)
@@ -199,7 +192,7 @@ export default function CandleChartPanel({
       )}
       {response?.truncated && (
         <p className="mt-1 text-[11.5px] text-ink-3">
-          The public API returned {response.candles.length} available candles; history is truncated.
+          Showing the most recent {response.candles.length} candles {displayVenue} provides.
         </p>
       )}
       {error && (

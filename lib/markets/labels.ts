@@ -80,8 +80,8 @@ export function formatCompact(value: number | null | undefined): string {
   return value.toLocaleString("en-US", { notation: "compact", maximumFractionDigits: 1 });
 }
 
-/** "16:59:28.254 UTC" from an ISO timestamp, as sent. */
+/** "16:59:28 UTC" from an ISO timestamp, as sent. */
 export function formatClock(iso: string | null | undefined): string {
-  const match = /T(\d{2}:\d{2}:\d{2})(\.\d{1,3})?/.exec(iso ?? "");
-  return match ? `${match[1]}${match[2] ?? ""} UTC` : "";
+  const match = /T(\d{2}:\d{2}:\d{2})/.exec(iso ?? "");
+  return match ? `${match[1]} UTC` : "";
 }

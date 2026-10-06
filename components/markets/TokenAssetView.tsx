@@ -177,7 +177,7 @@ export default function TokenAssetView({
 
   const tokenTitle = card?.name ?? card?.symbol ?? shortAddress(mint);
   const tokenIdentity =
-    card?.name && card.symbol ? (
+    card?.name && card.symbol && card.symbol.toLowerCase() !== card.name.toLowerCase() ? (
       <>
         <bdi>{card.name}</bdi> · <bdi>{card.symbol}</bdi>
       </>
@@ -206,10 +206,16 @@ export default function TokenAssetView({
     <>
       <PageHeader
         title={tokenIdentity}
-        actions={<StatusPill tone={loading ? "orange" : error ? "red" : "neutral"}>{loading ? "Checking" : error ? "Unavailable" : "Token facts"}</StatusPill>}
+        actions={
+          loading ? (
+            <StatusPill tone="orange">Checking</StatusPill>
+          ) : error ? (
+            <StatusPill tone="red">Unavailable</StatusPill>
+          ) : undefined
+        }
       />
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-[1120px] px-4 pb-16 pt-6 sm:px-8">
+        <div className="mx-auto w-full max-w-[1280px] px-4 pb-16 pt-6 sm:px-8">
           <p className="text-[12.5px] text-ink-3">Solana token · intelligence only · no trading, wallets or custody</p>
           <div className="mt-2 flex items-center gap-3">
             {card?.image_url && (
@@ -278,7 +284,6 @@ export default function TokenAssetView({
                   initialInterval="1h"
                   venueName="GeckoTerminal"
                   ticks={priceTicks}
-                  showTradeCount={false}
                   emptyMessage="GeckoTerminal has no candles for this interval."
                   loadingMessage="Loading candles from GeckoTerminal…"
                   staleMessage={() => "GeckoTerminal could not be reached; showing its cached candle history."}
