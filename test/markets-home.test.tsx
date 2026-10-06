@@ -34,6 +34,7 @@ afterEach(() => {
 beforeEach(() => {
   nav.push.mockReset();
   localStorage.clear();
+  vi.stubEnv("NEXT_PUBLIC_FULL_HOME", "true");
   vi.stubEnv("NEXT_PUBLIC_WATCHLIST_ALERTS", "false");
   vi.spyOn(marketsClient, "getNews").mockResolvedValue(EMPTY_NEWS);
   vi.spyOn(marketsClient, "getFilings").mockResolvedValue(EMPTY_FILINGS);
@@ -86,13 +87,20 @@ function trade(venue: string, symbol: string, price: number): MarketEvent {
   };
 }
 
-function setup(fetchImpl: typeof fetch, analyses: AnalysisSummary[] = [], ui: ReactNode = <HomeView />) {
+function setup(
+  fetchImpl: typeof fetch,
+  analyses: AnalysisSummary[] = [],
+  ui: ReactNode = <HomeView />,
+  historyResponse?: () => Response,
+  latestEvents?: MarketEvent[],
+) {
+  const events = latestEvents ?? [trade("coinbase", "BTC-USD", 100), trade("kraken", "BTC-USD", 99)];
   const snapshot: MarketsSnapshot = {
     generated_at: AT,
     shadow_mode: true,
     enabled_venues: ["coinbase", "kraken"],
-    symbols: ["BTC-USD"],
-    latest_events: [trade("coinbase", "BTC-USD", 100), trade("kraken", "BTC-USD", 99)],
+    symbols: [...new Set(events.map((event) => event.symbol))],
+    latest_events: events,
     latest_classifications: [],
   };
   const markets: UseMarketsResult = {
@@ -110,13 +118,79 @@ function setup(fetchImpl: typeof fetch, analyses: AnalysisSummary[] = [], ui: Re
   };
   const backend = stubBackend({
     "GET /capabilities": () => jsonResponse(200, capabilitiesFixture),
-    "GET /analyses": () => jsonResponse(200, { analyses, next_cursor: null }),
+    "GET /analyses": () => historyResponse?.() ?? jsonResponse(200, { analyses, next_cursor: null }),
   });
   vi.stubGlobal("fetch", fetchImpl);
   renderWorkspace(ui, { client: backend.client }, markets);
 }
 
 describe("HomeView", () => {
+  it("shows the stablecoin board and filtered news by default without mounting the full Home", async () => {
+    vi.stubEnv("NEXT_PUBLIC_FULL_HOME", "false");
+    const getNews = vi.spyOn(marketsClient, "getNews").mockResolvedValue({
+      ...EMPTY_NEWS,
+      items: [
+        newsItem("release", "SEC release", "official", "2026-10-05T12:00:00Z"),
+        newsItem("token", "Solana token event", "token_event", "2026-10-05T13:00:00Z"),
+      ],
+    });
+    const now = new Date().toISOString();
+    const stablecoinEvents = [
+      { ...trade("coinbase", "USDC-USD", 0.9999), exchange_timestamp: now },
+      { ...trade("kraken", "USDC-USD", 1.0001), exchange_timestamp: now },
+      {
+        ...trade("kraken", "PYUSD-USD", 0.9999),
+        event_type: "book" as const,
+        price: null,
+        bid: 0.9998,
+        ask: 1,
+        bid_depth_10bps: 4_000_000,
+        ask_depth_10bps: 4_800_000,
+        exchange_timestamp: now,
+      },
+    ];
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ candles: [] }), { status: 200 }));
+    setup(fetchImpl as unknown as typeof fetch, [], <HomeView />, undefined, stablecoinEvents);
+
+    expect(screen.getByRole("heading", { name: "Stablecoins" })).toBeTruthy();
+    expect(
+      screen.getByText("Live stablecoin prices against $1 across exchanges. Measured prices only, not investment advice. No trading, wallets or custody."),
+    ).toBeTruthy();
+    const board = screen.getByRole("region", { name: /Stablecoins — live from exchanges/ });
+    expect(within(board).getByRole("link", { name: "USDC" })).toBeTruthy();
+    expect(within(board).getByText("$1.00000")).toBeTruthy();
+    const pyusdLink = within(board).getByRole("link", { name: "PYUSD" });
+    expect(pyusdLink.parentElement?.textContent).toContain("$0.99990");
+    const pyusdReading = within(board).getByText("Kraken $0.99990").closest("[title]");
+    expect(pyusdReading?.getAttribute("title")).toContain("order-book mid");
+    expect(within(board).getByText("Order-book depth ±0.1%: $8.8M")).toBeTruthy();
+    expect(screen.queryByRole("region", { name: /Stocks/ })).toBeNull();
+    expect(screen.queryByRole("region", { name: /Biggest moves/ })).toBeNull();
+    expect(screen.queryByRole("region", { name: /Crypto/ })).toBeNull();
+    expect(screen.queryByRole("region", { name: /New Solana tokens/ })).toBeNull();
+
+    const newsPanel = screen.getByRole("region", { name: /News & events/ });
+    expect(await within(newsPanel).findByText("SEC release")).toBeTruthy();
+    expect(within(newsPanel).queryByText("Solana token event")).toBeNull();
+    expect(getNews).toHaveBeenCalledWith({ limit: 30 }, fetchImpl, expect.any(AbortSignal));
+    expect(marketsClient.getFilings).not.toHaveBeenCalled();
+  });
+
+  it("shows stale exchange coverage when a stablecoin has no fresh USD reading", () => {
+    vi.stubEnv("NEXT_PUBLIC_FULL_HOME", "false");
+    const staleTrade = {
+      ...trade("coinbase", "DAI-USD", 1),
+      exchange_timestamp: new Date(Date.now() - 11 * 60_000).toISOString(),
+    };
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ candles: [] }), { status: 200 }));
+    setup(fetchImpl as unknown as typeof fetch, [], <HomeView />, undefined, [staleTrade]);
+
+    const board = screen.getByRole("region", { name: /Stablecoins — live from exchanges/ });
+    expect(within(board).getByRole("link", { name: "DAI" })).toBeTruthy();
+    expect(within(board).getByText("No fresh exchange price")).toBeTruthy();
+    expect(within(board).queryByText("One exchange · can't cross-check")).toBeNull();
+  });
+
   it("shows grouped crypto markets and the exact fresh-research empty state without a stock price", async () => {
     const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ candles: [] }), { status: 200 }));
     setup(fetchImpl as unknown as typeof fetch);
@@ -124,9 +198,63 @@ describe("HomeView", () => {
     expect(await within(stocks).findByText("Search a company to research it. Each search pulls fresh web data at that moment.")).toBeTruthy();
     const crypto = screen.getByRole("region", { name: /Crypto/ });
     expect(within(crypto).getByRole("link", { name: "BTC" })).toBeTruthy();
-    expect(within(crypto).getByText("2 · coinbase")).toBeTruthy();
+    expect(within(crypto).getByText("2 · Coinbase")).toBeTruthy();
     expect(within(stocks).queryByText(/price/i)).toBeNull();
     expect(screen.getByRole("region", { name: /New Solana tokens/ })).toBeTruthy();
+  });
+
+  it("shows a company-research unavailable state when history fails before loading rows", async () => {
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ candles: [] }), { status: 200 }));
+    setup(
+      fetchImpl as unknown as typeof fetch,
+      [],
+      <HomeView />,
+      () =>
+        jsonResponse(503, {
+          error: { code: "INTERNAL_ERROR", message: "History service is unavailable.", retryable: true },
+        }),
+    );
+
+    const stocks = screen.getByRole("region", { name: /Stocks/ });
+    expect(
+      await within(stocks).findByText("Company research is unavailable right now: History service is unavailable."),
+    ).toBeTruthy();
+    expect(within(stocks).queryByText("Loading company research…")).toBeNull();
+    expect(within(stocks).queryByText(/Research history could not be refreshed/)).toBeNull();
+    expect(within(stocks).getByRole("status")).toBeTruthy();
+  });
+
+  it("shows the refresh error when older stock research rows remain after loading more fails", async () => {
+    const apple: AnalysisSummary = {
+      analysis_id: "apple",
+      query: "Apple outlook",
+      instrument: { symbol: "AAPL", exchange: "NASDAQ", name: "Apple", cik: null, sector: null, instrument_type: "stock" },
+      profile: "fast",
+      horizon: "next_cycle",
+      status: "completed",
+      created_at: AT,
+      updated_at: AT,
+      completed_at: AT,
+      error_code: null,
+    };
+    const historyResponse = vi
+      .fn<() => Response>()
+      .mockReturnValueOnce(jsonResponse(200, { analyses: [apple], next_cursor: "next-page" }))
+      .mockReturnValueOnce(
+        jsonResponse(503, {
+          error: { code: "INTERNAL_ERROR", message: "History page failed.", retryable: true },
+        }),
+      );
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ candles: [] }), { status: 200 }));
+    setup(fetchImpl as unknown as typeof fetch, [], <HomeView />, historyResponse);
+
+    const stocks = screen.getByRole("region", { name: /Stocks/ });
+    expect(await within(stocks).findByRole("link", { name: /AAPL · Apple/ })).toBeTruthy();
+    fireEvent.click(await screen.findByRole("button", { name: "Load more" }));
+    expect(
+      await within(stocks).findByText("Research history could not be refreshed: History page failed."),
+    ).toBeTruthy();
+    expect(within(stocks).getByRole("link", { name: /AAPL · Apple/ })).toBeTruthy();
   });
 
   it("merges recent news and filings newest-first using only recent stock tickers", async () => {
@@ -166,10 +294,10 @@ describe("HomeView", () => {
     setup(fetchImpl as unknown as typeof fetch, [], <CryptoAssetView base="BTC" />);
 
     fireEvent.click(screen.getByRole("tab", { name: "News" }));
-    expect(await screen.findByRole("region", { name: /^BTC events/ })).toBeTruthy();
-    expect(await screen.findByRole("region", { name: /^Regulator releases/ })).toBeTruthy();
-    expect(screen.getByText(marketEvent.title)).toBeTruthy();
-    expect(screen.getByText(official.title)).toBeTruthy();
+    const events = await screen.findByRole("region", { name: /^BTC events/ });
+    const releases = await screen.findByRole("region", { name: /^Regulator releases/ });
+    expect(await within(events).findByText(marketEvent.title)).toBeTruthy();
+    expect(await within(releases).findByText(official.title)).toBeTruthy();
     expect(news).toHaveBeenCalledWith({ symbol: "BTC", kinds: ["market_event"], limit: 50 }, fetchImpl, expect.any(AbortSignal));
     expect(news).toHaveBeenCalledWith({ kinds: ["official"], limit: 10 }, fetchImpl, expect.any(AbortSignal));
   });

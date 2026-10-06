@@ -12,6 +12,7 @@ import LiveChart from "@/components/markets/LiveChart";
 import { chartPanes, continuesHistory } from "@/components/markets/TradingChart";
 import { fetchCandles, fetchTokenCandles } from "@/lib/markets/client";
 import { chartLines, indicatorPoints } from "@/lib/markets/indicators";
+import { stablecoinReferenceLines } from "@/lib/markets/stablecoins";
 import { SOLANA_CANDLE_INTERVALS, type CandleBar, type CandleInterval, type CandleResponse } from "@/lib/markets/types";
 
 const chartMock = vi.hoisted(() => {
@@ -203,6 +204,70 @@ describe("shared token candlestick panel", () => {
       "Candle history could not be loaded: GeckoTerminal is rate-limited or unavailable.",
     );
     expect(screen.getByText("Candles from GeckoTerminal public API are unavailable.")).toBeTruthy();
+  });
+});
+
+describe("stablecoin chart reference line", () => {
+  it("draws the $1 guide for a USDT-USD chart but not BTC-USD", async () => {
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
+    chartMock.chart.addSeries.mockClear();
+    const stablecoin = render(
+      <CandleChartPanel
+        title="USDT-USD"
+        venue="coinbase"
+        symbol="USDT-USD"
+        referenceLines={stablecoinReferenceLines("USDT", "USD")}
+      />,
+    );
+    await waitFor(() => expect(chartMock.chart.addSeries).toHaveBeenCalled());
+    const stablecoinSeries = chartMock.chart.addSeries.mock.results[0]?.value as {
+      createPriceLine: ReturnType<typeof vi.fn>;
+      applyOptions: ReturnType<typeof vi.fn>;
+    };
+    await waitFor(() =>
+      expect(stablecoinSeries.createPriceLine).toHaveBeenCalledWith(
+        expect.objectContaining({
+          price: 1,
+          title: "$1",
+          axisLabelVisible: true,
+          lineStyle: 2,
+        }),
+      ),
+    );
+    const autoscaleOptions = stablecoinSeries.applyOptions.mock.calls
+      .map(([options]) => options as { autoscaleInfoProvider?: unknown })
+      .find((options) => typeof options.autoscaleInfoProvider === "function");
+    expect(autoscaleOptions).toBeDefined();
+    const autoscaleInfoProvider = autoscaleOptions?.autoscaleInfoProvider as (
+      baseImplementation: () => { priceRange: { minValue: number; maxValue: number } },
+    ) => { priceRange: { minValue: number; maxValue: number } };
+    const autoscaled = autoscaleInfoProvider(() => ({
+      priceRange: { minValue: 0.99965, maxValue: 0.9999 },
+    }));
+    expect(autoscaled.priceRange.minValue).toBe(0.99965);
+    expect(autoscaled.priceRange.maxValue).toBe(1);
+
+    stablecoin.unmount();
+    chartMock.chart.addSeries.mockClear();
+    render(
+      <CandleChartPanel
+        title="BTC-USD"
+        venue="coinbase"
+        symbol="BTC-USD"
+        referenceLines={stablecoinReferenceLines("BTC", "USD")}
+      />,
+    );
+    await waitFor(() => expect(chartMock.chart.addSeries).toHaveBeenCalled());
+    const bitcoinSeries = chartMock.chart.addSeries.mock.results[0]?.value as {
+      createPriceLine: ReturnType<typeof vi.fn>;
+      applyOptions: ReturnType<typeof vi.fn>;
+    };
+    expect(bitcoinSeries.createPriceLine).not.toHaveBeenCalled();
+    expect(
+      bitcoinSeries.applyOptions.mock.calls.some(
+        ([options]) => typeof (options as { autoscaleInfoProvider?: unknown }).autoscaleInfoProvider === "function",
+      ),
+    ).toBe(false);
   });
 });
 

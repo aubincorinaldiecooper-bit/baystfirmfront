@@ -12,8 +12,8 @@ import { fetchGate, fetchSignalBacktest, fetchSnapshot, fetchTrackRecord, Market
 import { initialMarketsState, marketsReducer, type MarketsState } from "./state";
 import type { Classification, EvaluationGate, MarketEvent, MarketsSnapshot, SignalBacktest, TrackRecord } from "./types";
 
-/** Live scores cover the same 7 days the backtest replays. */
-export const TRACK_RECORD_WINDOW_HOURS = 168;
+/** The backend retains a 48-hour window for live scores. */
+export const TRACK_RECORD_WINDOW_HOURS = 48;
 
 export interface UseMarketsResult {
   state: MarketsState;

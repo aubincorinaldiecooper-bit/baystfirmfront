@@ -38,7 +38,7 @@ describe("proxyMarketsRequest", () => {
 
   it("forwards the live and backtest track-record routes with window_hours", async () => {
     const { fetchImpl, calls } = upstream(() => new Response('{"groups":[]}', { status: 200 }));
-    await proxyMarketsRequest(new Request("http://localhost:3000/api/markets/track-record?window_hours=168&x=1"), ["track-record"], {
+    await proxyMarketsRequest(new Request("http://localhost:3000/api/markets/track-record?window_hours=48&x=1"), ["track-record"], {
       fetch: fetchImpl,
       config: CONFIG,
       session,
@@ -49,7 +49,7 @@ describe("proxyMarketsRequest", () => {
       session,
     });
     expect(calls.map((call) => call.url)).toEqual([
-      "http://bayst.test/v1/track-record?window_hours=168",
+      "http://bayst.test/v1/track-record?window_hours=48",
       "http://bayst.test/v1/track-record/backtest",
     ]);
   });

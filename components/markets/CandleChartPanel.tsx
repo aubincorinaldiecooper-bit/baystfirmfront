@@ -27,6 +27,7 @@ export default function CandleChartPanel({
   loadingMessage,
   staleMessage,
   attribution,
+  referenceLines,
   showTradeCount = false,
   showLastPrice = true,
   ariaLabel,
@@ -43,6 +44,7 @@ export default function CandleChartPanel({
   loadingMessage?: string;
   staleMessage?: (response: CandleResponse) => ReactNode;
   attribution?: (response: CandleResponse) => ReactNode;
+  referenceLines?: readonly { price: number; title: string }[];
   showTradeCount?: boolean;
   showLastPrice?: boolean;
   ariaLabel?: string;
@@ -142,6 +144,7 @@ export default function CandleChartPanel({
       <TradingChart
         candles={mergedCandles}
         lines={lines}
+        referenceLines={referenceLines}
         dark={dark}
         emptyText={mergedCandles.length > 0 ? null : loading ? loadingMessage ?? "Loading candles…" : noCandles}
         ariaLabel={ariaLabel ?? `Candlestick history for ${symbol ?? "instrument"} on ${displayVenue}`}

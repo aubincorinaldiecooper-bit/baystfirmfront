@@ -8,7 +8,9 @@ import {
   LineSeries,
   LineStyle,
   createChart,
+  type AutoscaleInfo,
   type IChartApi,
+  type IPriceLine,
   type ISeriesApi,
   type MouseEventParams,
   type SeriesType,
@@ -82,12 +84,14 @@ interface Readout {
 export default function TradingChart({
   candles,
   lines,
+  referenceLines,
   dark,
   emptyText,
   ariaLabel,
 }: {
   candles: CandleBar[];
   lines: ChartLine[];
+  referenceLines?: readonly { price: number; title: string }[];
   dark: boolean;
   emptyText: string | null;
   ariaLabel: string;
@@ -95,6 +99,7 @@ export default function TradingChart({
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const referencePriceLinesRef = useRef<IPriceLine[]>([]);
   const lineSeriesRef = useRef(new Map<string, ISeriesApi<SeriesType>>());
   const shownCandlesRef = useRef<CandleBar[]>([]);
   const [hover, setHover] = useState<Readout | null>(null);
@@ -185,10 +190,47 @@ export default function TradingChart({
 
   useEffect(() => {
     const chart = chartRef.current;
-    if (!chart) return;
+    const candleSeries = candleSeriesRef.current;
+    if (!chart || !candleSeries) return;
     const registry = lineSeriesRef.current;
     for (const series of registry.values()) chart.removeSeries(series);
     registry.clear();
+    for (const priceLine of referencePriceLinesRef.current) candleSeries.removePriceLine(priceLine);
+    referencePriceLinesRef.current = [];
+    const guide = resolveColor("--ink-3");
+    for (const referenceLine of referenceLines ?? []) {
+      referencePriceLinesRef.current.push(
+        candleSeries.createPriceLine({
+          price: referenceLine.price,
+          color: guide,
+          lineWidth: 1,
+          lineStyle: LineStyle.Dashed,
+          axisLabelVisible: true,
+          title: referenceLine.title,
+        }),
+      );
+    }
+    const referencePrices = (referenceLines ?? []).map(({ price }) => price).filter(Number.isFinite);
+    candleSeries.applyOptions({
+      autoscaleInfoProvider:
+        referencePrices.length === 0
+          ? undefined
+          : (baseImplementation: () => AutoscaleInfo | null): AutoscaleInfo | null => {
+              const autoscaleInfo = baseImplementation();
+              const referenceMin = Math.min(...referencePrices);
+              const referenceMax = Math.max(...referencePrices);
+              if (!autoscaleInfo?.priceRange) {
+                return { priceRange: { minValue: referenceMin, maxValue: referenceMax } };
+              }
+              return {
+                ...autoscaleInfo,
+                priceRange: {
+                  minValue: Math.min(autoscaleInfo.priceRange.minValue, referenceMin),
+                  maxValue: Math.max(autoscaleInfo.priceRange.maxValue, referenceMax),
+                },
+              };
+            },
+    });
     const panes = chartPanes(lines);
     const up = resolveColor("--green");
     const down = resolveColor("--red");
@@ -229,7 +271,7 @@ export default function TradingChart({
       registry.set(line.id, series);
     }
     chart.panes().forEach((pane, index) => pane.setStretchFactor(index === 0 ? PRICE_PANE_HEIGHT : SUB_PANE_HEIGHT));
-  }, [lines, dark]);
+  }, [lines, dark, referenceLines]);
 
   const last = candles[candles.length - 1];
   const bar = hover?.bar ?? (last ? { open: last.open, high: last.high, low: last.low, close: last.close } : null);

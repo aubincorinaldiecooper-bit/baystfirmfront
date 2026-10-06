@@ -6,14 +6,17 @@
 - Company-research charts (price history, quarterly figures) and key stats show only values the backend retrieved through web search, with the page each came from. An empty chart states that web search found no page with that data. Never present it as switched off.
 - Everything the UI shows comes from recorded backend events or result fields: no fake data, no
   simulated progress, or timers driving state. The Home News & events panel may refresh every 60
-  seconds while the tab is visible.
+  seconds while the tab is visible. An open Solana token page may refresh its existing token card
+  every 60 seconds while the tab is visible.
 - `BAY_API_KEY` stays on the server (the `/api/bay` proxy); nothing client-side reads it.
 - Owner-approved market source: Home (`/`), crypto detail (`/crypto/*`), and Solana token pages
   (`/tokens/*`) read only Baystfirm through the server-side `/api/markets` proxy; `BAYST_API_KEY`
   stays on the server. Crypto charts use backend exchange candles; token facts and token candles
   use only the backend's Solana endpoints. Stocks never show a live price. The legacy `/markets`
   and `/tokens` routes redirect into the workspace. Analysis figures and evidence remain
-  web-search-only; a separately labelled SEC EDGAR filing list is links only.
+  web-search-only; a separately labelled SEC EDGAR filing list is links only. Home shows
+  stablecoins only unless `NEXT_PUBLIC_FULL_HOME=true`; other assets remain reachable on demand
+  through header search and direct URLs.
 - Approved news sources are limited to the SEC, CFTC, Federal Reserve and Bank of Canada official
   feeds, SEC EDGAR filings, and Baystfirm-measured market/on-chain events. Show headlines,
   source, time and a link to the original only; never republish publisher article bodies or add
@@ -30,5 +33,5 @@
 - Once a change has passed its checks, **leave it alone**: no follow-up tidying, relabelling or
   "one more fix" before it ships, and no re-running checks on code that already passed. Ship
   exactly what passed.
-- Leftovers noticed after checks pass are reported to the owner, not fixed on the spot. They go
-  in a later change only if the owner asks.
+- Bugs found while testing (including in a browser click-through) are fixed on the spot, in a
+  follow-up change, rather than only reported.

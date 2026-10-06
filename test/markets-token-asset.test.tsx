@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import TokenAssetView from "@/components/markets/TokenAssetView";
@@ -17,6 +17,7 @@ vi.mock("@/components/markets/CandleChartPanel", () => ({
 }));
 afterEach(() => {
   cleanup();
+  vi.useRealTimers();
   Object.defineProperty(navigator, "clipboard", { configurable: true, value: undefined });
   vi.restoreAllMocks();
 });
@@ -122,6 +123,26 @@ describe("TokenAssetView", () => {
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
+  it("refreshes facts after 60 seconds and keeps the previous card when refresh fails", async () => {
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify(tokenCard), { status: 200, headers: { "content-type": "application/json" } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ error: { message: "Refresh unavailable." } }), { status: 503, headers: { "content-type": "application/json" } }));
+    render(<TokenAssetView mint={MINT} fetchImpl={fetchImpl as unknown as typeof fetch} />);
+
+    expect(await screen.findByText(/Main pool price \$0\.00002 USD/)).toBeTruthy();
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(screen.getByText(/Main pool price \$0\.00002 USD/)).toBeTruthy();
+    expect(screen.getByText("Couldn't refresh; showing facts from 17:00:00 UTC.")).toBeTruthy();
+    expect(screen.queryByText("Reading token facts from the Baystfirm backend…")).toBeNull();
+  });
+
   it("shows mint-filtered token events beneath Token facts as plain text on the same asset page", async () => {
     const event: NewsItem = {
       id: "liquidity-drop",
@@ -139,7 +160,7 @@ describe("TokenAssetView", () => {
     render(<TokenAssetView mint={MINT} fetchImpl={fetchImpl as unknown as typeof fetch} />);
 
     const section = await screen.findByRole("region", { name: /^Token events/ });
-    expect(within(section).getByText(event.title).closest("a")).toBeNull();
+    expect((await within(section).findByText(event.title)).closest("a")).toBeNull();
     const factsHeading = screen.getByRole("heading", { name: "Token facts" });
     const eventsHeading = screen.getByRole("heading", { name: /^Token events/ });
     expect(factsHeading.compareDocumentPosition(eventsHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
