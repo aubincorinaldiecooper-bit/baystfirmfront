@@ -176,6 +176,53 @@ describe("HomeView", () => {
     expect(marketsClient.getFilings).not.toHaveBeenCalled();
   });
 
+  it("shows a same-quote median when a stablecoin has no USD market", () => {
+    vi.stubEnv("NEXT_PUBLIC_FULL_HOME", "false");
+    const now = new Date().toISOString();
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ candles: [] }), { status: 200 }));
+    setup(
+      fetchImpl as unknown as typeof fetch,
+      [],
+      <HomeView />,
+      undefined,
+      [
+        { ...trade("coinbase", "USDE-USDT", 1), exchange_timestamp: now },
+        { ...trade("kraken", "USDE-USDT", 1.0002), exchange_timestamp: now },
+      ],
+    );
+
+    const board = screen.getByRole("region", { name: /Stablecoins — live from exchanges/ });
+    const usde = within(board).getByRole("link", { name: "USDE" }).closest("article") as HTMLElement;
+    expect(within(usde).getByText("1.00010 USDT")).toBeTruthy();
+    expect(within(usde).getByText("vs USDT:")).toBeTruthy();
+    expect(within(usde).getByText("Coinbase 1.00000")).toBeTruthy();
+    expect(within(usde).getByText("Kraken 1.00020")).toBeTruthy();
+    expect(usde.textContent).not.toMatch(/[+-]\d+(?:\.\d+)?%/);
+  });
+
+  it("groups non-USD readings by quote asset without repeating the quote", () => {
+    vi.stubEnv("NEXT_PUBLIC_FULL_HOME", "false");
+    const now = new Date().toISOString();
+    const fetchImpl = vi.fn(async () => new Response(JSON.stringify({ candles: [] }), { status: 200 }));
+    setup(
+      fetchImpl as unknown as typeof fetch,
+      [],
+      <HomeView />,
+      undefined,
+      [
+        { ...trade("coinbase", "USDE-USDT", 1), exchange_timestamp: now },
+        { ...trade("kraken", "USDE-USDC", 1.0001), exchange_timestamp: now },
+      ],
+    );
+
+    const board = screen.getByRole("region", { name: /Stablecoins — live from exchanges/ });
+    const usde = within(board).getByRole("link", { name: "USDE" }).closest("article") as HTMLElement;
+    expect(within(usde).getByText("vs USDT:")).toBeTruthy();
+    expect(within(usde).getByText("vs USDC:")).toBeTruthy();
+    expect(within(usde).getByText("Coinbase 1.00000")).toBeTruthy();
+    expect(within(usde).getByText("Kraken 1.00010")).toBeTruthy();
+  });
+
   it("shows stale exchange coverage when a stablecoin has no fresh USD reading", () => {
     vi.stubEnv("NEXT_PUBLIC_FULL_HOME", "false");
     const staleTrade = {
@@ -201,6 +248,53 @@ describe("HomeView", () => {
     expect(within(crypto).getByText("2 · Coinbase")).toBeTruthy();
     expect(within(stocks).queryByText(/price/i)).toBeNull();
     expect(screen.getByRole("region", { name: /New Solana tokens/ })).toBeTruthy();
+  });
+
+  it("hides non-stablecoin tabs on stablecoin pages and limits Signals to the peg section", () => {
+    const now = new Date().toISOString();
+    const fetchImpl = vi.fn(async () => new Response("{}", { status: 200 }));
+    setup(
+      fetchImpl as unknown as typeof fetch,
+      [],
+      <CryptoAssetView base="USDT" tabParam="derivatives" />,
+      undefined,
+      [{ ...trade("coinbase", "USDT-USD", 1), exchange_timestamp: now }],
+    );
+
+    const tabs = screen.getByRole("tablist", { name: "USDT market data" });
+    expect(within(tabs).getByRole("tab", { name: "Venues" }).getAttribute("aria-selected")).toBe("true");
+    expect(within(tabs).queryByRole("tab", { name: "Derivatives" })).toBeNull();
+    expect(within(tabs).queryByRole("tab", { name: "Liquidations" })).toBeNull();
+    expect(within(tabs).queryByRole("tab", { name: "Track record" })).toBeNull();
+
+    fireEvent.click(within(tabs).getByRole("tab", { name: "Signals" }));
+    const panel = screen.getByRole("tabpanel");
+    expect(within(panel).getByText("Shadow signals: not validated")).toBeTruthy();
+    expect(within(panel).getByRole("region", { name: /Stablecoin peg/ })).toBeTruthy();
+    expect(within(panel).queryByRole("region", { name: "Momentum" })).toBeNull();
+    expect(within(panel).queryByRole("region", { name: "Short-horizon momentum" })).toBeNull();
+    expect(within(panel).queryByText("Market states and probabilities only; not investment advice.")).toBeNull();
+    expect(screen.queryByText(/streamed market event/)).toBeNull();
+  });
+
+  it("keeps BTC derivatives, liquidations, track record, and momentum signals", () => {
+    const fetchImpl = vi.fn(async () => new Response("{}", { status: 200 }));
+    setup(
+      fetchImpl as unknown as typeof fetch,
+      [],
+      <CryptoAssetView base="BTC" />,
+      undefined,
+      [trade("coinbase", "BTC-USD", 85_000)],
+    );
+
+    const tabs = screen.getByRole("tablist", { name: "BTC market data" });
+    expect(within(tabs).getByRole("tab", { name: "Derivatives" })).toBeTruthy();
+    expect(within(tabs).getByRole("tab", { name: "Liquidations" })).toBeTruthy();
+    expect(within(tabs).getByRole("tab", { name: "Track record" })).toBeTruthy();
+    fireEvent.click(within(tabs).getByRole("tab", { name: "Signals" }));
+    const panel = screen.getByRole("tabpanel");
+    expect(within(panel).getByRole("heading", { name: /^Momentum/ })).toBeTruthy();
+    expect(within(panel).getByRole("heading", { name: /^Short-horizon momentum/ })).toBeTruthy();
   });
 
   it("shows a company-research unavailable state when history fails before loading rows", async () => {

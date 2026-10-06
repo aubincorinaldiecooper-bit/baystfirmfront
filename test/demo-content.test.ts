@@ -19,7 +19,7 @@ const DEMO_VOCABULARY =
 const EXTERNAL_ASSET_HOSTS = /vercel-storage|blob\.vercel/i;
 /* the only URL shipped UI code may contain is the upstream attribution */
 const URL_LITERAL = /https?:\/\/[^\s"'`)<>]+/gi;
-const ALLOWED_URLS = new Set(["https://github.com/slev12397/beautiful-ui"]);
+const ALLOWED_URLS = new Set(["https://github.com/slev12397/beautiful-ui", "http://www.w3.org/2000/svg"]);
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const entry of readdirSync(dir)) {

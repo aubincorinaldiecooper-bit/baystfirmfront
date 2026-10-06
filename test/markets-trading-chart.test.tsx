@@ -314,6 +314,21 @@ describe("shared token candlestick panel", () => {
     expect(notice.textContent).toContain("GeckoTerminal could not be reached; showing its cached candle history.");
   });
 
+  it("names the provider in its truncated candle-history note", async () => {
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
+    render(
+      <CandleChartPanel
+        title="BTC-USD"
+        venue="coinbase"
+        symbol="BTC-USD"
+        venueName="Coinbase"
+        loadCandles={async () => response({ candles: [bar(60_000)], truncated: true })}
+      />,
+    );
+
+    expect(await screen.findByText("Showing the most recent 1 candles Coinbase provides.")).toBeTruthy();
+  });
+
   it("reports token candle errors without substituting another source", async () => {
     vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
     render(

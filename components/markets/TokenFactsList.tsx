@@ -64,9 +64,6 @@ export default function TokenFactsList({ card }: { card: TokenCard }) {
                 <div>{factSummary(key, card)}</div>
                 {key === "top10_share" && top10 && (
                   <div className="mt-1 space-y-0.5 text-[11.5px] text-ink-3">
-                    {card.facts.top10_share.source === "geckoterminal" && (
-                      <p>Per GeckoTerminal; may include pool and exchange accounts.</p>
-                    )}
                     {top10.holder_count !== null && (
                       <p>Holder count: {top10.holder_count.toLocaleString("en-US")}</p>
                     )}

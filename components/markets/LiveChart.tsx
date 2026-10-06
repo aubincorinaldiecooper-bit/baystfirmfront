@@ -40,7 +40,6 @@ export default function LiveChart({
       loadCandles={venue && symbol ? loadCandles : undefined}
       ticks={ticks}
       venueName={venue ? venueLabel(venue) : undefined}
-      showTradeCount
     />
   );
 }

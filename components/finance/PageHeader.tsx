@@ -23,7 +23,7 @@ export default function PageHeader({ title, actions }: { title: ReactNode; actio
       </button>
       <div className="hidden max-w-[220px] min-w-0 shrink-0 truncate text-[13px] font-semibold text-ink lg:block">{title}</div>
       <HeaderSearch />
-      {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+      {actions && <div className="hidden shrink-0 items-center gap-2 sm:flex">{actions}</div>}
       <Link href="/status" className="shrink-0 rounded-[8px] px-2 py-1.5 text-[12.5px] font-medium text-ink-2 hover:bg-hover-2 hover:text-ink">
         Status
       </Link>

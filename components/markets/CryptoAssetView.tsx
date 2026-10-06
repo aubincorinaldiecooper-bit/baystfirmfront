@@ -8,7 +8,7 @@ import { Badge, Notice, Section } from "@/components/finance/ui";
 import { useMarketsContext } from "@/components/markets/MarketsProvider";
 import { useWorkspace } from "@/components/finance/workspace";
 import { watchlistAlertsEnabled } from "@/lib/markets/features";
-import { formatClock, formatQuote, horizonLabel, venueLabel } from "@/lib/markets/labels";
+import { formatQuote, horizonLabel, venueLabel } from "@/lib/markets/labels";
 import { groupInstrumentsByBase, preferredInstrument } from "@/lib/markets/instruments";
 import { stablecoinReferenceLines } from "@/lib/markets/stablecoins";
 import { classificationsFor, instrumentKey, instrumentRows, type InstrumentRow } from "@/lib/markets/state";
@@ -27,6 +27,7 @@ import AlertsPanel from "./AlertsPanel";
 type CryptoTab = "venues" | "derivatives" | "liquidations" | "signals" | "track-record" | "alerts" | "news";
 
 const EMPTY_MARKET_NAMES: string[] = [];
+const STABLECOIN_HIDDEN_TABS: readonly CryptoTab[] = ["derivatives", "liquidations", "track-record"];
 
 const tabs: { id: CryptoTab; label: string }[] = [
   { id: "venues", label: "Venues" },
@@ -40,6 +41,10 @@ const tabs: { id: CryptoTab; label: string }[] = [
 
 function baseOf(symbol: string): string {
   return symbol.split("-")[0]?.trim().toUpperCase() ?? "";
+}
+
+function tabFromParam(value: string | undefined): CryptoTab {
+  return tabs.find((item) => item.id === value)?.id ?? "venues";
 }
 
 function assetDerivativeRows(
@@ -68,9 +73,11 @@ function assetDerivativeRows(
 export default function CryptoAssetView({
   base: rawBase,
   instrumentParam,
+  tabParam,
 }: {
   base: string;
   instrumentParam?: string;
+  tabParam?: string;
 }) {
   const base = rawBase.trim().toUpperCase();
   const {
@@ -91,7 +98,7 @@ export default function CryptoAssetView({
   const watchlist = useWatchlist();
   const [horizon, setHorizon] = useState<number>(3600);
   const [picked, setPicked] = useState<{ context: string; key: string } | null>(null);
-  const [tab, setTab] = useState<CryptoTab>("venues");
+  const [tab, setTab] = useState<CryptoTab>(() => tabFromParam(tabParam));
   const selectionContext = `${base}|${instrumentParam ?? ""}`;
 
   const rows = useMemo(
@@ -109,6 +116,7 @@ export default function CryptoAssetView({
     null;
   const selectedRow = rows.find((row) => row.key === selected);
   const referenceLines = stablecoinReferenceLines(base, selectedRow?.last.quote_asset);
+  const stablecoinPage = referenceLines !== undefined;
   const snapshotSymbols = snapshot?.symbols ?? EMPTY_MARKET_NAMES;
   const knownBase = rows.length > 0 || snapshotSymbols.some((symbol) => baseOf(symbol) === base);
   const venueNames = snapshot?.enabled_venues ?? EMPTY_MARKET_NAMES;
@@ -137,7 +145,9 @@ export default function CryptoAssetView({
     () => classificationsFor(state, "momentum_regime", horizon).filter((item) => baseOf(item.symbol) === base),
     [base, horizon, state],
   );
-  const availableTabs = featuresEnabled ? tabs : tabs.filter((item) => item.id !== "alerts");
+  const availableTabs = (featuresEnabled ? tabs : tabs.filter((item) => item.id !== "alerts")).filter(
+    (item) => !stablecoinPage || !STABLECOIN_HIDDEN_TABS.includes(item.id),
+  );
   const activeTab = availableTabs.some((item) => item.id === tab) ? tab : "venues";
 
   const searchThisBase = () => {
@@ -232,7 +242,7 @@ export default function CryptoAssetView({
                   symbol={selectedRow?.symbol ?? null}
                   ticks={selected ? state.ticks[selected] ?? [] : []}
                   referenceLines={referenceLines}
-                  showIndicators={referenceLines === undefined}
+                  showIndicators={!stablecoinPage}
                 />
               </Section>
               <div className="mt-6 flex flex-wrap gap-2" role="tablist" aria-label={`${base} market data`}>
@@ -300,35 +310,41 @@ export default function CryptoAssetView({
                       <Notice kind="warn" title="Shadow signals: not validated">
                         These classifications have not passed the evaluation gate. They are shown for review with their evidence and probability, not as trusted signals or advice.
                       </Notice>
-                      <p className="mt-2 text-[12px] text-ink-3">Market states and probabilities only; not investment advice.</p>
+                      {!stablecoinPage && (
+                        <p className="mt-2 text-[12px] text-ink-3">Market states and probabilities only; not investment advice.</p>
+                      )}
                     </div>
-                    {pegs.length > 0 && (
+                    {(pegs.length > 0 || stablecoinPage) && (
                       <Section id="crypto-signals-peg" title="Stablecoin peg" count={pegs.length}>
                         <SignalBoard items={pegs} empty="No peg classification yet: it needs fresh trades from at least two venues." />
                       </Section>
                     )}
-                    <Section id="crypto-signals-regime" title="Momentum" count={regime.length}>
-                      <div role="group" aria-label="Signal horizon" className="mb-2 flex flex-wrap gap-1">
-                        {MOMENTUM_HORIZONS.map((seconds) => (
-                          <button
-                            key={seconds}
-                            type="button"
-                            aria-pressed={horizon === seconds}
-                            className="rounded-md px-2.5 py-1 font-mono text-[12px] text-ink-2 hover:bg-hover-2 aria-pressed:bg-inset aria-pressed:text-ink"
-                            onClick={() => setHorizon(seconds)}
-                          >
-                            {horizonLabel(seconds)}
-                          </button>
-                        ))}
-                      </div>
-                      <SignalBoard
-                        items={regime}
-                        empty={`No ${horizonLabel(horizon)} momentum call recorded since the backend last restarted.`}
-                      />
-                    </Section>
-                    <Section id="crypto-signals-short" title="Short-horizon momentum" count={momentum.length}>
-                      <SignalBoard items={momentum} empty="No momentum classification yet: it needs 30 trades over at least 10 seconds." />
-                    </Section>
+                    {!stablecoinPage && (
+                      <>
+                        <Section id="crypto-signals-regime" title="Momentum" count={regime.length}>
+                          <div role="group" aria-label="Signal horizon" className="mb-2 flex flex-wrap gap-1">
+                            {MOMENTUM_HORIZONS.map((seconds) => (
+                              <button
+                                key={seconds}
+                                type="button"
+                                aria-pressed={horizon === seconds}
+                                className="rounded-md px-2.5 py-1 font-mono text-[12px] text-ink-2 hover:bg-hover-2 aria-pressed:bg-inset aria-pressed:text-ink"
+                                onClick={() => setHorizon(seconds)}
+                              >
+                                {horizonLabel(seconds)}
+                              </button>
+                            ))}
+                          </div>
+                          <SignalBoard
+                            items={regime}
+                            empty={`No ${horizonLabel(horizon)} momentum call recorded since the backend last restarted.`}
+                          />
+                        </Section>
+                        <Section id="crypto-signals-short" title="Short-horizon momentum" count={momentum.length}>
+                          <SignalBoard items={momentum} empty="No momentum classification yet: it needs 30 trades over at least 10 seconds." />
+                        </Section>
+                      </>
+                    )}
                   </>
                 )}
                 {activeTab === "track-record" && (
@@ -363,12 +379,6 @@ export default function CryptoAssetView({
                   </>
                 )}
               </div>
-              {state.snapshotLoaded && (
-                <p className="mt-4 text-[11.5px] text-ink-3">
-                  {state.events} streamed market event{state.events === 1 ? "" : "s"} since the shared feed connected · last snapshot{" "}
-                  {snapshot ? formatClock(snapshot.generated_at) : "unavailable"}.
-                </p>
-              )}
             </>
           )}
           <div className="mt-6">
