@@ -26,7 +26,7 @@ const chartMock = vi.hoisted(() => {
     unsubscribeCrosshairMove: vi.fn(),
     remove: vi.fn(),
     panes: vi.fn(() => []),
-    timeScale: vi.fn(() => ({ scrollToRealTime: vi.fn() })),
+    timeScale: vi.fn(() => ({ scrollToRealTime: vi.fn(), fitContent: vi.fn() })),
   };
   return { chart };
 });
@@ -105,6 +105,37 @@ describe("live candle updates", () => {
     expect(continuesHistory(history, [bar(120_000), bar(180_000)])).toBe(false);
     expect(continuesHistory(history, [...history, bar(180_000), bar(240_000)])).toBe(false);
   });
+
+  it("fits the loaded range in Simple mode and keeps realtime scrolling in Details", () => {
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
+    chartMock.chart.timeScale.mockClear();
+    const simple = render(
+      <TradingChart
+        candles={[bar(60_000), bar(120_000)]}
+        lines={[]}
+        dark={false}
+        simple
+        emptyText={null}
+        ariaLabel="Simple test chart"
+      />,
+    );
+    const simpleScale = chartMock.chart.timeScale.mock.results[0]?.value as {
+      fitContent: ReturnType<typeof vi.fn>;
+      scrollToRealTime: ReturnType<typeof vi.fn>;
+    };
+    expect(simpleScale.fitContent).toHaveBeenCalledTimes(1);
+    expect(simpleScale.scrollToRealTime).not.toHaveBeenCalled();
+
+    simple.unmount();
+    chartMock.chart.timeScale.mockClear();
+    render(<TradingChart candles={[bar(60_000), bar(120_000)]} lines={[]} dark={false} emptyText={null} ariaLabel="Details test chart" />);
+    const detailsScale = chartMock.chart.timeScale.mock.results[0]?.value as {
+      fitContent: ReturnType<typeof vi.fn>;
+      scrollToRealTime: ReturnType<typeof vi.fn>;
+    };
+    expect(detailsScale.scrollToRealTime).toHaveBeenCalledTimes(1);
+    expect(detailsScale.fitContent).not.toHaveBeenCalled();
+  });
 });
 
 describe("fetchCandles", () => {
@@ -129,6 +160,27 @@ describe("fetchCandles", () => {
 });
 
 describe("shared token candlestick panel", () => {
+  it("shows a simple change label using the loaded candle span", async () => {
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
+    const loadCandles = vi.fn(async () =>
+      response({
+        candles: [bar(0, 100), bar(8 * 24 * 60 * 60_000, 108.43)],
+      }),
+    );
+
+    render(
+      <CandleChartPanel
+        title="BTC-USD"
+        venue="coinbase"
+        symbol="BTC-USD"
+        loadCandles={loadCandles}
+        simple
+      />,
+    );
+
+    expect(await screen.findByText("+8.43% over 8 days")).toBeTruthy();
+  });
+
   it("uses candle-derived precision for sub-cent prices in the legend and series", async () => {
     vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
     chartMock.chart.addSeries.mockClear();

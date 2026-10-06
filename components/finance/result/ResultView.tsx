@@ -69,15 +69,44 @@ export function StreamedText({ text, sources, streaming }: { text: string; sourc
 export default function ResultView({
   result,
   showRequirements = true,
+  simple = false,
 }: {
   result: AnalysisResult;
   /** The analysis page shows the labels once, above the trace. */
   showRequirements?: boolean;
+  simple?: boolean;
 }) {
   const sources = sourceIndex(result.sources);
   const { assessment } = result;
   const completed = result.status === "completed";
   const requirements = showRequirements ? requirementLabels(result.requirements) : [];
+  const simpleEvidence = (id: string, title: string, items: typeof assessment.what_changed) => {
+    if (items.length === 0) return null;
+    return (
+      <>
+        <EvidenceSection id={id} title={title} items={items.slice(0, 3)} sources={sources} showStance={false} />
+        {items.length > 3 && <p className="mt-1 text-[11.5px] text-ink-3">{items.length - 3} more in Details</p>}
+      </>
+    );
+  };
+
+  if (simple && completed) {
+    const negatives = [...assessment.bear_evidence, ...assessment.risks];
+    return (
+      <div className="@container">
+        {assessment.summary && (
+          <Section id="summary" title="Assessment">
+            <p className="whitespace-pre-wrap text-[14px] leading-[1.7] text-ink">
+              <CitedText text={assessment.summary} sources={sources} />
+            </p>
+          </Section>
+        )}
+        {simpleEvidence("what-changed", "What changed", assessment.what_changed)}
+        {simpleEvidence("positives", "Positives", assessment.bull_evidence)}
+        {simpleEvidence("negatives", "Negatives", negatives)}
+      </div>
+    );
+  }
 
   return (
     <div className="@container">

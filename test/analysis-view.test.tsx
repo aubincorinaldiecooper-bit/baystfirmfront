@@ -51,6 +51,7 @@ beforeEach(() => {
   FakeEventSource.reset();
   nav.push.mockReset();
   window.localStorage.clear();
+  window.localStorage.setItem("bayanalytics.viewMode", "details");
   vi.spyOn(marketsClient, "getFilings").mockResolvedValue(EMPTY_FILINGS);
 });
 

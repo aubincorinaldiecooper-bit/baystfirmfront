@@ -7,10 +7,10 @@ import { Badge, Notice, Section } from "@/components/finance/ui";
 import type { StreamStatus } from "@/lib/markets/client";
 import { formatCompact, formatQuote, venueLabel } from "@/lib/markets/labels";
 import {
+  headlinePrice,
   OFF_PEG_PCT,
   summarizeStablecoins,
   type StablecoinReading,
-  type StablecoinSummary,
 } from "@/lib/markets/stablecoins";
 import type { MarketsState } from "@/lib/markets/state";
 
@@ -27,33 +27,6 @@ function coverageLabel(coverage: string): string {
   if (coverage === "stale") return "No fresh exchange price";
   if (coverage === "no_usd_pair") return "Quoted vs USDT only";
   return "No data";
-}
-
-function medianReadingPrice(readings: StablecoinReading[]): number | null {
-  if (readings.length === 0) return null;
-  const prices = readings.map((reading) => reading.price).sort((a, b) => a - b);
-  const middle = Math.floor(prices.length / 2);
-  return prices.length % 2 === 0 ? (prices[middle - 1] + prices[middle]) / 2 : prices[middle];
-}
-
-function headlinePrice(summary: StablecoinSummary): string {
-  if (summary.crossMarketPrice !== null) return `$${formatQuote(summary.crossMarketPrice)}`;
-
-  const freshOtherQuotes = summary.otherQuoteReadings.filter((reading) => reading.fresh);
-  const freshQuoteAssets = new Set(freshOtherQuotes.map((reading) => reading.quote));
-  if (freshQuoteAssets.size === 1) {
-    const quote = freshOtherQuotes[0].quote;
-    const price = medianReadingPrice(freshOtherQuotes);
-    if (price !== null) return `${formatQuote(price)} ${quote}`;
-  }
-
-  const staleOrUncrossedUsd = medianReadingPrice(summary.usdReadings);
-  if (staleOrUncrossedUsd !== null) return `$${formatQuote(staleOrUncrossedUsd)}`;
-
-  const latestOtherQuote = [...summary.otherQuoteReadings].sort(
-    (a, b) => Date.parse(b.at) - Date.parse(a.at),
-  )[0];
-  return latestOtherQuote ? `${formatQuote(latestOtherQuote.price)} ${latestOtherQuote.quote}` : "—";
 }
 
 export default function StablecoinBoard({

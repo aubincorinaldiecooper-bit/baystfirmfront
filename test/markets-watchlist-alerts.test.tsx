@@ -138,6 +138,7 @@ afterEach(() => {
 beforeEach(() => {
   vi.stubEnv("NEXT_PUBLIC_WATCHLIST_ALERTS", "true");
   localStorage.clear();
+  localStorage.setItem("bayanalytics.viewMode", "details");
   navigation.search = "";
   navigation.pathname = "/crypto/BTC";
   navigation.push.mockReset();

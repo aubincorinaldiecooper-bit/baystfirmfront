@@ -18,6 +18,22 @@ const VENUE_NAMES: Record<string, string> = {
 
 export const venueLabel = (venue: string) => VENUE_NAMES[venue] ?? venue;
 
+const ASSET_NAMES: Record<string, string> = {
+  USDT: "Tether",
+  USDC: "USD Coin",
+  PYUSD: "PayPal USD",
+  DAI: "Dai",
+  USDE: "Ethena USDe",
+  FDUSD: "First Digital USD",
+  BTC: "Bitcoin",
+  ETH: "Ethereum",
+  SOL: "Solana",
+};
+
+export function assetName(base: string): string | null {
+  return ASSET_NAMES[base.trim().toUpperCase()] ?? null;
+}
+
 const STATE_LABELS: Record<string, { label: string; tone: Tone }> = {
   pegged: { label: "Pegged", tone: "green" },
   peg_watch: { label: "Peg watch", tone: "orange" },
@@ -69,6 +85,19 @@ export function formatQuote(value: number | null | undefined): string {
   if (typeof value !== "number" || !Number.isFinite(value)) return "—";
   const digits = value < 10 ? 5 : value < 1000 ? 3 : 2;
   return value.toLocaleString("en-US", { minimumFractionDigits: digits, maximumFractionDigits: digits });
+}
+
+export function formatSpan(ms: number): string {
+  if (ms < 2 * 60 * 60 * 1000) {
+    const minutes = Math.round(ms / 60_000);
+    return `${minutes} ${minutes === 1 ? "minute" : "minutes"}`;
+  }
+  if (ms < 48 * 60 * 60 * 1000) {
+    const hours = Math.round(ms / 3_600_000);
+    return `${hours} ${hours === 1 ? "hour" : "hours"}`;
+  }
+  const days = Math.round(ms / 86_400_000);
+  return `${days} ${days === 1 ? "day" : "days"}`;
 }
 
 export function formatMs(value: number | null | undefined): string {

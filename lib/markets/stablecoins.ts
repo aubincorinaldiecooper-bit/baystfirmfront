@@ -1,5 +1,6 @@
 import type { InstrumentRow, MarketsState } from "./state";
 import type { MarketEvent } from "./types";
+import { formatQuote } from "./labels";
 
 export const STABLECOINS = ["USDT", "USDC", "PYUSD", "DAI", "USDE", "FDUSD"] as const;
 export const OFF_PEG_PCT = 0.5;
@@ -29,6 +30,33 @@ export interface StablecoinSummary {
   freshUsdVenueCount: number;
   depthUsd10bps: number | null;
   coverage: StablecoinCoverage;
+}
+
+function medianReadingPrice(readings: StablecoinReading[]): number | null {
+  if (readings.length === 0) return null;
+  const prices = readings.map((reading) => reading.price).sort((a, b) => a - b);
+  const middle = Math.floor(prices.length / 2);
+  return prices.length % 2 === 0 ? (prices[middle - 1] + prices[middle]) / 2 : prices[middle];
+}
+
+export function headlinePrice(summary: StablecoinSummary): string {
+  if (summary.crossMarketPrice !== null) return `$${formatQuote(summary.crossMarketPrice)}`;
+
+  const freshOtherQuotes = summary.otherQuoteReadings.filter((reading) => reading.fresh);
+  const freshQuoteAssets = new Set(freshOtherQuotes.map((reading) => reading.quote));
+  if (freshQuoteAssets.size === 1) {
+    const quote = freshOtherQuotes[0].quote;
+    const price = medianReadingPrice(freshOtherQuotes);
+    if (price !== null) return `${formatQuote(price)} ${quote}`;
+  }
+
+  const staleOrUncrossedUsd = medianReadingPrice(summary.usdReadings);
+  if (staleOrUncrossedUsd !== null) return `$${formatQuote(staleOrUncrossedUsd)}`;
+
+  const latestOtherQuote = [...summary.otherQuoteReadings].sort(
+    (a, b) => Date.parse(b.at) - Date.parse(a.at),
+  )[0];
+  return latestOtherQuote ? `${formatQuote(latestOtherQuote.price)} ${latestOtherQuote.quote}` : "—";
 }
 
 interface StablecoinEntry {

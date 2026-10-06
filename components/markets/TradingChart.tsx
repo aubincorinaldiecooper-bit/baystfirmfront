@@ -85,6 +85,7 @@ export default function TradingChart({
   lines,
   referenceLines,
   dark,
+  simple = false,
   emptyText,
   ariaLabel,
 }: {
@@ -92,12 +93,13 @@ export default function TradingChart({
   lines: ChartLine[];
   referenceLines?: readonly { price: number; title: string }[];
   dark: boolean;
+  simple?: boolean;
   emptyText: string | null;
   ariaLabel: string;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
-  const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const priceSeriesRef = useRef<ISeriesApi<SeriesType> | null>(null);
   const referencePriceLinesRef = useRef<IPriceLine[]>([]);
   const lineSeriesRef = useRef(new Map<string, ISeriesApi<SeriesType>>());
   const shownCandlesRef = useRef<CandleBar[]>([]);
@@ -126,10 +128,19 @@ export default function TradingChart({
         timeFormatter: (time: Time) => formatBarTime(Number(time)),
       },
     });
-    const candleSeries = chart.addSeries(CandlestickSeries, {
-      borderVisible: false,
-      priceFormat: candlePriceFormat(5),
-    });
+    const priceSeries = simple
+      ? chart.addSeries(LineSeries, {
+          color: resolveColor("--accent"),
+          lineWidth: 2,
+          priceLineVisible: false,
+          lastValueVisible: true,
+          crosshairMarkerVisible: false,
+          priceFormat: candlePriceFormat(5),
+        })
+      : chart.addSeries(CandlestickSeries, {
+          borderVisible: false,
+          priceFormat: candlePriceFormat(5),
+        });
     const onCrosshairMove = (param: MouseEventParams) => {
       if (param.time === undefined || !param.point) {
         setHover(null);
@@ -140,28 +151,30 @@ export default function TradingChart({
         const item = param.seriesData.get(series);
         if (item && "value" in item) values[id] = item.value;
       }
-      const item = param.seriesData.get(candleSeries);
-      const bar = item && "open" in item ? { open: item.open, high: item.high, low: item.low, close: item.close } : null;
+      const item = param.seriesData.get(priceSeries);
+      const bar = !simple && item && "open" in item ? { open: item.open, high: item.high, low: item.low, close: item.close } : null;
       setHover({ bar, values });
     };
     chart.subscribeCrosshairMove(onCrosshairMove);
     chartRef.current = chart;
-    candleSeriesRef.current = candleSeries;
+    priceSeriesRef.current = priceSeries;
+    setHover(null);
     const lineSeries = lineSeriesRef.current;
     return () => {
       chart.unsubscribeCrosshairMove(onCrosshairMove);
       chart.remove();
       chartRef.current = null;
-      candleSeriesRef.current = null;
+      priceSeriesRef.current = null;
+      referencePriceLinesRef.current = [];
       lineSeries.clear();
       shownCandlesRef.current = [];
     };
-  }, []);
+  }, [simple]);
 
   useEffect(() => {
     const chart = chartRef.current;
-    const candleSeries = candleSeriesRef.current;
-    if (!chart || !candleSeries) return;
+    const priceSeries = priceSeriesRef.current;
+    if (!chart || !priceSeries) return;
     const muted = resolveColor("--ink-3");
     const line = resolveColor("--line");
     const up = resolveColor("--green");
@@ -178,37 +191,57 @@ export default function TradingChart({
         horzLine: { color: muted, labelBackgroundColor: resolveColor("--tooltip-bg") },
       },
     });
-    candleSeries.applyOptions({ upColor: up, downColor: down, wickUpColor: up, wickDownColor: down });
-  }, [dark]);
+    if (simple) {
+      (priceSeries as ISeriesApi<"Line">).applyOptions({ color: resolveColor("--accent") });
+    } else {
+      (priceSeries as ISeriesApi<"Candlestick">).applyOptions({ upColor: up, downColor: down, wickUpColor: up, wickDownColor: down });
+    }
+  }, [dark, simple]);
 
   useEffect(() => {
     const chart = chartRef.current;
-    const candleSeries = candleSeriesRef.current;
-    if (!chart || !candleSeries) return;
-    candleSeries.applyOptions({ priceFormat: candlePriceFormat(pricePrecision) });
+    const priceSeries = priceSeriesRef.current;
+    if (!chart || !priceSeries) return;
     const previous = shownCandlesRef.current;
-    if (continuesHistory(previous, candles)) {
-      for (const candle of candles.slice(previous.length - 1)) candleSeries.update(toBar(candle));
+    if (simple) {
+      const lineSeries = priceSeries as ISeriesApi<"Line">;
+      lineSeries.applyOptions({ priceFormat: candlePriceFormat(pricePrecision) });
+      if (continuesHistory(previous, candles)) {
+        for (const candle of candles.slice(previous.length - 1)) {
+          lineSeries.update({ time: (candle.open_time / 1000) as UTCTimestamp, value: candle.close });
+        }
+      } else {
+        lineSeries.setData(
+          candles.map((candle) => ({ time: (candle.open_time / 1000) as UTCTimestamp, value: candle.close })),
+        );
+        chart.timeScale().fitContent();
+      }
     } else {
-      candleSeries.setData(candles.map(toBar));
-      chart.timeScale().scrollToRealTime();
+      const candleSeries = priceSeries as ISeriesApi<"Candlestick">;
+      candleSeries.applyOptions({ priceFormat: candlePriceFormat(pricePrecision) });
+      if (continuesHistory(previous, candles)) {
+        for (const candle of candles.slice(previous.length - 1)) candleSeries.update(toBar(candle));
+      } else {
+        candleSeries.setData(candles.map(toBar));
+        chart.timeScale().scrollToRealTime();
+      }
     }
     shownCandlesRef.current = candles;
-  }, [candles, pricePrecision]);
+  }, [candles, pricePrecision, simple]);
 
   useEffect(() => {
     const chart = chartRef.current;
-    const candleSeries = candleSeriesRef.current;
-    if (!chart || !candleSeries) return;
+    const priceSeries = priceSeriesRef.current;
+    if (!chart || !priceSeries) return;
     const registry = lineSeriesRef.current;
     for (const series of registry.values()) chart.removeSeries(series);
     registry.clear();
-    for (const priceLine of referencePriceLinesRef.current) candleSeries.removePriceLine(priceLine);
+    for (const priceLine of referencePriceLinesRef.current) priceSeries.removePriceLine(priceLine);
     referencePriceLinesRef.current = [];
     const guide = resolveColor("--ink-3");
     for (const referenceLine of referenceLines ?? []) {
       referencePriceLinesRef.current.push(
-        candleSeries.createPriceLine({
+        priceSeries.createPriceLine({
           price: referenceLine.price,
           color: guide,
           lineWidth: 1,
@@ -219,7 +252,7 @@ export default function TradingChart({
       );
     }
     const referencePrices = (referenceLines ?? []).map(({ price }) => price).filter(Number.isFinite);
-    candleSeries.applyOptions({
+    priceSeries.applyOptions({
       autoscaleInfoProvider:
         referencePrices.length === 0
           ? undefined
@@ -279,35 +312,37 @@ export default function TradingChart({
       registry.set(line.id, series);
     }
     chart.panes().forEach((pane, index) => pane.setStretchFactor(index === 0 ? PRICE_PANE_HEIGHT : SUB_PANE_HEIGHT));
-  }, [lines, dark, pricePrecision, referenceLines]);
+  }, [lines, dark, pricePrecision, referenceLines, simple]);
 
   const last = candles[candles.length - 1];
-  const bar = hover?.bar ?? (last ? { open: last.open, high: last.high, low: last.low, close: last.close } : null);
+  const bar = simple ? null : hover?.bar ?? (last ? { open: last.open, high: last.high, low: last.low, close: last.close } : null);
   const readoutValue = (line: ChartLine) => (hover ? hover.values[line.id] : line.points[line.points.length - 1]?.value);
   const height = PRICE_PANE_HEIGHT + SUB_PANE_HEIGHT * (chartPanes(lines).length - 1);
 
   return (
     <div aria-label={ariaLabel} role="img">
-      <div className="mb-1 flex min-h-[16px] flex-wrap gap-x-3 gap-y-0.5 font-mono text-[11px] tabular-nums text-ink-2">
-      {bar && (
-        <>
-          <span>O {formatCandlePrice(bar.open, pricePrecision)}</span>
-          <span>H {formatCandlePrice(bar.high, pricePrecision)}</span>
-          <span>L {formatCandlePrice(bar.low, pricePrecision)}</span>
-          <span className={bar.close >= bar.open ? "text-green" : "text-red"}>
-            C {formatCandlePrice(bar.close, pricePrecision)}
-          </span>
-          {lines
-            .filter((line) => line.pane === "price")
-            .map((line) => (
-              <span key={line.id} className="inline-flex items-center gap-1">
-                <span className="inline-block size-2 rounded-full" style={{ background: `var(${line.color})` }} />
-                {line.label} {formatCandlePrice(readoutValue(line), pricePrecision)}
+      {!simple && (
+        <div className="mb-1 flex min-h-[16px] flex-wrap gap-x-3 gap-y-0.5 font-mono text-[11px] tabular-nums text-ink-2">
+          {bar && (
+            <>
+              <span>O {formatCandlePrice(bar.open, pricePrecision)}</span>
+              <span>H {formatCandlePrice(bar.high, pricePrecision)}</span>
+              <span>L {formatCandlePrice(bar.low, pricePrecision)}</span>
+              <span className={bar.close >= bar.open ? "text-green" : "text-red"}>
+                C {formatCandlePrice(bar.close, pricePrecision)}
               </span>
-            ))}
-        </>
+              {lines
+                .filter((line) => line.pane === "price")
+                .map((line) => (
+                  <span key={line.id} className="inline-flex items-center gap-1">
+                    <span className="inline-block size-2 rounded-full" style={{ background: `var(${line.color})` }} />
+                    {line.label} {formatCandlePrice(readoutValue(line), pricePrecision)}
+                  </span>
+                ))}
+            </>
+          )}
+        </div>
       )}
-      </div>
       <div className="relative" style={{ height }}>
         <div ref={containerRef} className="absolute inset-0" />
         {emptyText && (
